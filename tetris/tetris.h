@@ -21,6 +21,7 @@ void init_scoreboard(void);
 void init_levelboard(void);
 void handle_menu(void);
 void render_menu(void);
+void create_gameboard(void);
 
 uint8_t spi_send_recv(uint8_t data);
 
@@ -74,6 +75,13 @@ extern uint8_t nine[4*7];
 
 extern uint8_t scoretext[28*7];
 extern uint8_t leveltext[28*7];
+
+extern int T_Tetromino[4][4];
+extern int I_Tetromino[4][4];
+extern int L_Tetromino[4][4];
+extern int O_Tetromino[4][4];
+extern int S_Tetromino[4][4];
+extern int Z_Tetromino[4][4];
 
 #ifndef GAMESTATE_H
 #define GAMESTATE_H

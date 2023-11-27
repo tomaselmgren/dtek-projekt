@@ -237,7 +237,7 @@ void render_leaderboard() {
  display_string(0, "Leaderboard");
  //Get Score
  for (int i = 0; i < 3; i++) {
-    display_string(i+1, leader.scores[i]);
+    display_string(i+1, itoaconv(leader.scores[i]));
  }
  display_update();
 }
@@ -324,13 +324,77 @@ void clearScreen() {
 #define screenXStart 1
 #define screenXEnd 30
 #define screenYStart 22
-#define screenYEnd 82
+#define screenYEnd 81
 
 #define scoreXStart 2
 #define scoreYStart 109
 
 #define levelXStart 2
 #define levelYStart 3
+
+// Function prototypes
+void merge_tetromino(int tetromino[4][4], int x, int y);
+
+//use this function to test gameboard creation.
+void create_gameboard() {;
+  merge_tetromino(S_Tetromino, 18, 0);
+}
+
+void merge_tetromino(int tetromino[4][4], int x, int y) {
+    if ((x + 12) < 30 || x >= 0 || (y + 12) < 72 || y >= 0) {
+        int largeTetromino[12][12] = {0};
+
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                int row = i * 3 + 1;
+                int col = j * 3 + 1;
+                if (tetromino[i][j] == 1) {
+                    int startX = col - 1; // Move back by one unit to center the 3x3 block
+                    int startY = row - 1; // Move back by one unit to center the 3x3 block
+
+                    for (int x = startX; x < startX + 3; x++) {
+                        for (int y = startY; y < startY + 3; y++) {
+                            largeTetromino[y][x] = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < 12; i++) {
+            for (int j = 0; j < 12; j++) {
+                if (largeTetromino[11-i][j] == 1) {
+                  gameboard[y + i][x + j] = 1;
+                }
+            }
+        }
+    }
+}
+
+void convertArray(int smallArr[24][10], int largeArr[24*3][10*3]) {
+    // Iterate through the elements of the smaller array
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 10; j++) {
+
+            int row = i * 3 + 1;
+            int col = j * 3 + 1;
+            if (smallArr[i][j] == 1) {
+              render_block(col, row);
+            }   
+        }  
+    }
+}
+
+void render_block(int i, int j) {
+    int startX = i - 1; // Move back by one unit to center the 3x3 block
+    int startY = j - 1; // Move back by one unit to center the 3x3 block
+    
+    for (int x = startX; x < startX + 3; x++) {
+        for (int y = startY; y < startY + 3; y++) {
+            gameboard[y][x] = 1;
+        }
+    }
+}
 
 void render_gameboard() {
     for (int i = 0; i < 32; i++) {
@@ -350,7 +414,7 @@ void render_gameboard() {
 
             // Rendering game board blocks
             if (boardX >= 0 && boardX < boardWidth && boardY >= 0 && boardY < boardHeight) {
-                if ((gameboard[(boardHeight - 1) - boardY][boardX] == 1) && !isPixelTurnedOn(i, j)) {
+                if ((gameboard[boardY][boardX] == 1)) {
                   turnOnPixel(i, j);
                 }
             }
@@ -375,7 +439,7 @@ void render_gameboard() {
 //Draws the screen for the game loop
 void draw_screen() {
   clearScreen();
-  init_gameboard();
+  render_gameboard();
   render_screen();
 }
 

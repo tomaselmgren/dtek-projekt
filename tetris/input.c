@@ -69,7 +69,7 @@ void increaseLevel() {
 void gameoptions(int option) {
     switch (option) {
         case 0:
-            
+            //start
             break;
         case 1:
              increaseLevel();
@@ -94,7 +94,7 @@ void execute_option(int option) {
             while ( 1 ) {
               handle_gamemode();
               delay(100);
-              gameoptions();
+              gameoptions(option);
             }
             break;
         case SETTINGS:
