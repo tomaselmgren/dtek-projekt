@@ -286,3 +286,67 @@ void updateScore(int linesCleared, int level)
         break; 
     }
 }
+
+void create_gameboard() {
+  int small_gameboard[24][10] = {0};
+  small_gameboard[0][0] = 1;
+  int tetromino = convert_tetromino(S_Tetromino);
+  merge_tetromino(tetromino, 18, 0);
+}
+
+int convert_tetromino(int tetromino[4][4]) {
+  int largeTetromino[12][12] = {0};
+
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+
+        int startY = i * 3;
+        int startX = j * 3;
+
+        for (int x = startX; x < startX + 3; x++) {
+          for (int y = startY; y < startY + 3; y++) {
+            largeTetromino[y][x] = tetromino[i][j];
+          }
+        }
+      }
+    }
+
+  return largeTetromino;
+}
+
+void merge_tetromino(int tetromino[12][12], int x, int y) {
+  if ((x + 12) < 30 || x >= 0 || (y + 12) < 72 || y >= 0) {
+    for (int i = 0; i < 12; i++) {
+      for (int j = 0; j < 12; j++) {
+        if (tetromino[11-i][j] == 1) {
+          gameboard[y + i][x + j] = 1;
+        }
+      }
+    }
+  }
+}
+
+void convertArray(int smallArr[24][10], int largeArr[24*3][10*3]) {
+    // Iterate through the elements of the smaller array
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 10; j++) {
+
+            int row = i * 3 + 1;
+            int col = j * 3 + 1;
+            if (smallArr[i][j] == 1) {
+              render_block(col, row);
+            }   
+        }  
+    }
+}
+
+void render_block(int i, int j) {
+    int startX = i - 1; // Move back by one unit to center the 3x3 block
+    int startY = j - 1; // Move back by one unit to center the 3x3 block
+    
+    for (int x = startX; x < startX + 3; x++) {
+        for (int y = startY; y < startY + 3; y++) {
+            gameboard[y][x] = 1;
+        }
+    }
+}

@@ -22,6 +22,10 @@ void init_levelboard(void);
 void handle_menu(void);
 void render_menu(void);
 void create_gameboard(void);
+void merge_tetromino(int tetromino[12][12], int x, int y);
+int convert_tetromino(int ttetromino[4][4]);
+void convertArray(int smallArr[24][10], int largeArr[24*3][10*3]);
+void render_block(int i, int j);
 
 uint8_t spi_send_recv(uint8_t data);
 
@@ -61,6 +65,8 @@ extern uint8_t gameboard[24*3][10*3];
 extern uint8_t scoreboard[16][28];
 extern uint8_t levelboard[16][28];
 
+extern uint8_t largeTetromino[12][12];
+
 /* Declare bitmap array containing the numbers used in the score- and levelboard*/
 extern uint8_t zero[4*7];
 extern uint8_t one[4*7];
@@ -75,13 +81,6 @@ extern uint8_t nine[4*7];
 
 extern uint8_t scoretext[28*7];
 extern uint8_t leveltext[28*7];
-
-extern int T_Tetromino[4][4];
-extern int I_Tetromino[4][4];
-extern int L_Tetromino[4][4];
-extern int O_Tetromino[4][4];
-extern int S_Tetromino[4][4];
-extern int Z_Tetromino[4][4];
 
 #ifndef GAMESTATE_H
 #define GAMESTATE_H
