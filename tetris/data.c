@@ -164,10 +164,10 @@ const uint8_t const icon[] = {
 };
 
 uint8_t image[128*4] = {0};
-uint8_t gameboard[24*3][10*3] = {0};
+uint8_t board[24*3][10*3] = {0};
+uint8_t data_board[24][10] = {0};
 uint8_t scoreboard[16][28] = {0};
 uint8_t levelboard[16][28] = {0};
-
 
 uint8_t zero[4*7] = {
   0, 1, 1, 0,

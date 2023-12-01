@@ -112,87 +112,6 @@ void display_string(int line, char *s) {
 #define ABOUT 2
 #define EXIT 3
 
-// Add a global counter timeoutcount
-extern int currentOption;
-
-//How to render the menu screen
-void render_menu() {
- clearScreen();
- // Display the menu options
-    switch (currentOption) {
-      case START:
-        display_string(START, "> Start");
-        display_string(SETTINGS, "* Settings");
-        display_string(ABOUT, "* About");
-        display_string(EXIT, "* Exit");
-        break;
-      case SETTINGS:
-        display_string(START, "* Start");
-        display_string(SETTINGS, "> Settings");
-        display_string(ABOUT, "* About");
-        display_string(EXIT, "* Exit");
-        break;
-      case ABOUT:
-        display_string(START, "* Start");
-        display_string(SETTINGS, "* Settings");
-        display_string(ABOUT, "> About");
-        display_string(EXIT, "* Exit");
-        break;
-      case EXIT:
-        display_string(START, "* Start");
-        display_string(SETTINGS, "* Settings");
-        display_string(ABOUT, "* About");
-        display_string(EXIT, "> Exit");
-        break;
-    }
-  display_update();
-}
-
-extern int currentLevel;
-extern  int instaDrop;
-
-//How to render the gamemode selection screen;
-void render_gamemode() {
-  clearScreen();
-
-  char levelString[50];
-  char dropString[50];
-
-  if (currentOption != 1) { strcpy(levelString, "* Level: ");  } else { strcpy(levelString, "> Level: "); } 
-  if (currentOption != 2) { strcpy(dropString, "* Insta Drop: "); } else { strcpy(dropString, "> Insta Drop: "); }
-  strcat(levelString, itoaconv(currentLevel));
-  strcat(dropString, itoaconv(instaDrop));
-
- // Display the menu options
-    switch (currentOption) {
-      case 0:
-        display_string(0, "> Start");
-        display_string(1, levelString);
-        display_string(2, dropString);
-        display_string(3, "* Exit");
-        break;
-      case 1:
-        display_string(0, "* Start");
-        display_string(1, levelString);
-        display_string(2, dropString);
-        display_string(3, "* Exit");
-        break;
-      case 2:
-        display_string(0, "* Start");
-        display_string(1, levelString);
-        display_string(2, dropString);
-        display_string(3, "* Exit");
-        break;
-      case 3:
-        display_string(0, "* Start");
-        display_string(1, levelString);
-        display_string(2, dropString);
-        display_string(3, "> Exit");
-        break;
-    }
-  display_update();
-}
-
 struct leaderboard {
   int scores[10];
 };
@@ -332,7 +251,7 @@ void clearScreen() {
 #define levelXStart 2
 #define levelYStart 3
 
-void render_gameboard() {
+void render_gameboard(struct Game_State *game) {
     for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 128; j++) {
             int boardX = (i - screenXStart);
@@ -350,7 +269,7 @@ void render_gameboard() {
 
             // Rendering game board blocks
             if (boardX >= 0 && boardX < boardWidth && boardY >= 0 && boardY < boardHeight) {
-                if ((gameboard[boardY][boardX] == 1)) {
+                if ((game->board[boardY][boardX] == 1)) {
                   turnOnPixel(i, j);
                 }
             }
@@ -373,9 +292,8 @@ void render_gameboard() {
 }
 
 //Draws the screen for the game loop
-void draw_screen() {
-  clearScreen();
-  render_gameboard();
+void draw_screen(struct Game_State *game) {
+  render_gameboard(game);
   render_screen();
 }
 
@@ -405,6 +323,7 @@ void init_scoreboard() {
       scoreboard[y][x] = scoretext[x + y * 28];
     }
   }
+  update_score_text(0);
 }
 
 void init_levelboard() {
@@ -413,9 +332,11 @@ void init_levelboard() {
       levelboard[y][x] = leveltext[x + y * 28];
     }
   }
+
+  update_level_text(0);
 }
 
-void update_level(int level) {
+void update_level_text(int level) {
     int n = level;
     int arr[2] = {0, 0};
     int i = 0;
@@ -448,13 +369,13 @@ void update_level(int level) {
 
             for (int y = 0; y < 7; y++ ) {
               for (int x = 0; x < 4; x++ ) {
-                levelboard[y + 9][(x + 10) + i * 6] = current_digit_array[x + y * 4];
+                levelboard[y + 9][(x + 9) + i * 6] = current_digit_array[x + y * 4];
               }
             }
       }
 }
 
-void update_score(int score) {
+void update_score_text(int score) {
     int n = score;
     int arr[5] = {0, 0, 0, 0, 0};
     int i = 0;

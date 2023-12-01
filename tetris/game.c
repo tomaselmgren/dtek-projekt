@@ -4,9 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 int main(void) {
-        /*
+    startup();
+    create_game();
+    return 0;
+}
+
+void startup() {
+           /*
 	  This will set the peripheral bus clock to the same frequency
 	  as the sysclock. That means 80 MHz, when the microcontroller
 	  is running at 80 MHz. Changed 2017, as recommended by Axel.
@@ -49,136 +57,824 @@ int main(void) {
 	SPI2CONSET = 0x8000;
 	
 	display_init();
-	// display_string(0, "LEVEL");
-	// display_string(1, "0123456789");
-	// display_string(2, "SCORE");
-	// display_string(3, "level-score");
 	display_update();
-	labinit(); /* Do any lab-specific initialization */
-	// init_scoreboard();
-	// init_levelboard();
-	// update_score(12345);
-	// update_level(89);
-		
-		while( 1 )
-		{
-			// draw_screen();
-			handle_menu_input();
-			delay(100);
-			render_menu();
-		}
+	labinit(); 
 }
 
-/* Interrupt Service Routine */
-void user_isr( void )
-{
-  if (IFS(0) & 0x100) {
-    IFS(0) = 0;
-  } 
-}
+static const uint8_t FRAMES_PER_DROP[] = {
+    48,
+    43,
+    38,
+    33,
+    28,
+    23,
+    18,
+    13,
+    8,
+    6,
+    5,
+    5,
+    5,
+    4,
+    4,
+    4,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1
+};
 
-// Initialize the game_state struct pointer
-struct game_state *game;
+static const uint8_t LINES_PER_LEVEL[] = {
+    20,
+    30,
+    40,
+    50,
+    60,
+    70,
+    80,
+    90,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    110,
+    120,
+    130,
+    140,
+    150,
+    160,
+    170,
+    180,
+    190,
+    200,
+    200,
+    200,
+    200,
+};
 
-// Function to initialize the game_state struct
-struct game_state* init_gamestate() {
-    game = (struct game_state*) malloc(sizeof(struct game_state));
-    game->instDrop = 0;
-    game->score = 0;
-    game->level = 1;
-    game->FpG = 43;
+static const int TARGET_MILLISECONDS_PER_FRAME = 10;
+
+struct Tetromino TETROMINOS[] = {
+    { .data = { {0, 0, 0, 0},
+                {1, 1, 1, 1},
+                {0, 0, 0, 0},
+                {0, 0, 0, 0} }, .side = 4 },
+
+    { .data = { {1, 0, 0},
+                {1, 1, 1},
+                {0, 0, 0} }, .side = 3 },
+
+    { .data = { {0, 0, 1},
+                {1, 1, 1},
+                {0, 0, 0} }, .side = 3 },
+
+    { .data = { {1, 1},
+                {1, 1} }, .side = 2 },
+
+    { .data = { {0, 1, 1},
+                {1, 1, 0},
+                {0, 0, 0} }, .side = 3 },
+
+    { .data = { {1, 1, 0},
+                {0, 1, 1},
+                {0, 0, 0} }, .side = 3 },
+
+    { .data = { {0, 1, 0},
+                {1, 1, 1},
+                {0, 0, 0} }, .side = 3 }
+};
+
+int SPAWN_POSITIONS[] = {9,12,15};
+
+struct Game_State create_game_struct() {
+
+    struct Game_State game = {
+        .phase = GAME_PHASE_START,
+        .start_level = 1,
+        .instDrop = 0,
+        .level = 1,
+        .score = 0,
+        .lines = 0,
+        .next_drop_time = 0,
+        .time = 0,
+        .tick = 0,
+    };
+
     return game;
 }
 
-// Function to update the game_state struct
-void update_gamestate(int instDrop, int score, int level, int FpG) {
-    game->instDrop = instDrop;
-    game->score = score;
-    game->level = level;
-    game->FpG = FpG;
+void update_game_struct(struct Game_State *game) {
+        for (int row = 0; row < 72; row++) {
+            for (int col = 0; col < 30; col++) {
+                game->board[row][col] = 0;
+                game->data_board[row / 3][col / 3] = 0;
+            } 
+        }
+
+        game->phase = GAME_PHASE_START;
+        game->start_level = 1;
+        game->instDrop = 0;
+        game->level = 1;
+        game->score = 0;
+        game->lines = 0;
+        game->next_drop_time = 0;
+        game->time = 0;
+        game->tick = 0;
 }
 
-// Functions to set individual fields in the game_state struct
-void gamestate_set_instDrop(int instDrop) {
-    game->instDrop = instDrop;
-}
-
-void gamestate_set_score(int score) {
-    game->score = score;
-}
-
-void gamestate_set_level(int level) {
-    game->level = level;
-}
-
-void gamestate_set_FpG(int FpG) {
-    game->FpG = FpG;
-}
-
-/* Lab-specific initialization goes here */
-void labinit(void) {
-  // Initialize Port E so that bits 7 through 0 are outputs
-  volatile int* trise = (volatile int*)0xbf886100;
-   *trise &= ~0x00ff;
-
-  // Initialize port D so that bits 11 through 5 are inputs
-  TRISD = 0x0fe0;
-
-  // Initialize Timer 2 for timeouts every 100 ms
-  T2CON = 0x70; // Enable Timer 2, 1:256 prescaler
-  PR2 = 31250; // Period register counts down from 3906 at 80 MHz, which is 100 ms
-  TMR2 = 0;
-  T2CONSET = 0x8000;
-
-  return; 
-}
-
-/* This function is called repetitively from the main program */
-void labwork( void )
-{
-  volatile int *porte = (volatile int*) 0xbf886110;
-  volatile int *LED = (volatile int*) 0xbf886110; 
-
-  int sw;
-  int btn;
-
-  
-
-  // // Test the time-out event flag
-  // if (IFS(0) & 0x100) {
-  //   // Reset the time-out event flag
-  //   IFS(0) = 0;
-  //   // Increment the counter
-  //   timeoutcount++;
-  // } 
-  //   sw = getsw();
-  //   btn = getbtns();
+struct Menu_State create_menu_struct() {    
+    struct Menu_State menu = {
+         .screen = MENU_SCREEN,
+        .currentOption = 0,
+    };
     
-  //   //button 4 (0100)
-  //   if(btn == 4){
-  //     mytime = mytime & 0x0fff;
-  //     mytime = (sw<<12) | mytime ;
-  //   }
-  //   //button 3 (0010)
-  //   if(btn == 2){
-  //     mytime = mytime & 0xf0ff;
-  //     mytime = (sw<<8) | mytime ;
-  //   }
-  //   //button 2 (0001)
-  //   if(btn == 1){
-  //     mytime = mytime & 0xff0f;
-  //     mytime = (sw<<4) | mytime ;
-  //   }
+    return menu;
+}
 
-  //   // If the counter has reached 10, call the time2string, display_string, display_update, and tick functions
-  //   if (timeoutcount == 10) {
-  //     time2string( textstring, mytime );
-  //     display_string( 3, textstring );
-  //     tick( &mytime );
-  //     *LED = *LED + 0x1;
-  //     timeoutcount = 0;
-      
-  //   }
-    // display_update();
-    // display_image(0, icon);
+void create_game() {
+    struct Game_State game = create_game_struct();
+
+    while (1) {
+        switch (game.phase) {
+            case GAME_PHASE_START:
+            update_game_start(&game);
+            break;
+            case GAME_PHASE_PLAY:
+            update_game_play(&game);
+            break;
+            case GAME_PHASE_GAMEOVER:
+            update_game_gameover(&game);
+            break;
+        }
+    }
+}
+
+void update_game_start(struct Game_State *game) {
+    struct Menu_State menu = create_menu_struct();
+
+    while (game->phase == GAME_PHASE_START) {
+       // Display the menu options
+        switch (menu.screen) {
+            case MENU_SCREEN:
+                while (menu.screen == MENU_SCREEN && game->phase == GAME_PHASE_START) {
+                    handle_menu(game, &menu);
+                    delay(100);
+                    update_menu_screen(&menu);
+                    // menu.currentOption += 1;
+                    // display_string(0, itoaconv(menu.currentOption));
+                    // display_update();
+                }
+                break;
+            case GAMEOPTION_SCREEN:
+                while (menu.screen == GAMEOPTION_SCREEN && game->phase == GAME_PHASE_START) {
+                    handle_menu(game, &menu);
+                    delay(100);
+                    update_gameoption_screen(game, &menu);
+                }
+                break;
+            case SETTINGS_SCREEN:
+                break;
+            case ABOUT_SCREEN:
+                break;
+        }
+    } 
+}
+
+bool valid_soft_drop(struct Game_State *game) {
+    if (game->tick * 6 >= get_time_to_next_drop(game->level)) {
+        game->tick = 0;
+        return true;
+        }
+    return false;
+}
+
+bool is_gameover(struct Game_State *game) {
+    for (int col = 0; col < 10; col++) {
+        if (game->data_board[21][col] == 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void update_game_play(struct Game_State *game) {
+    init_scoreboard();
+    init_levelboard();
+    spawn_tetromino(game);
+
+    while (game->phase == GAME_PHASE_PLAY) {
+        if (IFS(0) & 0x100) {
+            IFS(0) = 0;
+
+            game->tick += 10;
+            game->time += 1;
+            clearScreen();
+
+            int btns = getbtns();
+            int sw = getsw();
+
+            switch (btns) {
+                case 4:
+                    moveLeft(game);
+                    game->time = 0;
+                break;
+                case 2: 
+                    moveRight(game);
+                    game->time = 0;
+                break;
+                case 1:
+                    if (sw == 8) {
+                        rotate_tetromino(game);
+                        game->time = 0;
+                    } else { moveDown(game); }  
+                break;
+            }
+            
+            if (valid_soft_drop(game)) {
+                moveDown(game);
+            }
+
+            if (!canMoveDown(game, game->piece) && game->time > 6) {
+
+                convert_to_databoard(game);
+                clearAllCompletedRows(game);
+                convert_to_board(game);
+
+                if (is_gameover(game)) {
+                    game->phase = GAME_PHASE_GAMEOVER;
+                }
+            
+                //Spawn new tetromino
+                spawn_tetromino(game);
+                game->time = 0;
+            }  
+
+            draw_screen(game);
+        }     
+    }
+}   
+
+void update_game_gameover(struct Game_State *game) {
+
+    insert_score(game->score);
+    render_highscore(game->score);
+
+    while (game->phase == GAME_PHASE_GAMEOVER) {
+        int btn = getbtns();
+
+        if (btn > 0) {
+            update_game_struct(game);
+        }
+        
+        render_leaderboard();
+    }
+}
+
+int random_number_gen(int min_range, int max_range){
+    static int rand_number = 199198; // any random number
+    rand_number = ((rand_number * rand_number) / 10 ) % 9890;
+    return rand_number % (max_range+1-min_range) + min_range ; 
+}
+
+int get_time_to_next_drop(int level)
+{
+    if (level > 29)
+    {
+        level = 29;
+    }
+    return (FRAMES_PER_DROP[level] / 3) * TARGET_MILLISECONDS_PER_FRAME;
+}
+
+void set_piece_data(struct Game_State *game, struct Tetromino *tetromino)
+{
+    for (int row = 0; row < tetromino->side; row++) {
+        for (int col = 0; col < tetromino->side; col++) {
+            game->piece.data[row][col] = tetromino->data[row][col];
+        }
+    }
+
+    game->piece.side = tetromino->side;
+    set_piece_tetromino(game);
+}
+
+void set_piece_tetromino(struct Game_State *game) {
+    for (int i = 0; i < game->piece.side; i++) {
+      for (int j = 0; j < game->piece.side; j++) {
+
+        int startY = i * 3;
+        int startX = j * 3;
+
+        for (int y = startY; y < startY + 3; y++) {
+            for (int x = startX; x < startX + 3; x++) {
+                game->piece.tetromino[y][x] = game->piece.data[i][j];
+            }
+        }
+      }
+    }
+}
+
+void spawn_tetromino(struct Game_State *game) {
+    set_piece_data(game, &TETROMINOS[0]);
+    
+    game->piece.pos_x = SPAWN_POSITIONS[random_number_gen(0,2)];
+    game->piece.pos_y = 72;
+    game->next_drop_time = game->time + get_time_to_next_drop(game->level);
+
+    merge_tetromino(game);
+}
+
+void merge_tetromino(struct Game_State *game) {
+  //if ((game->piece.pos_x < 30 && game->piece.pos_x >= 0) && (game->piece.pos_y < 72 && game->piece.pos_y >= 0)) {
+
+    for (int i = 0; i < game->piece.side * 3; i++) {
+      for (int j = 0; j < game->piece.side * 3; j++) {
+        if (game->piece.tetromino[i][j] == 1) {
+          game->board[game->piece.pos_y - i][game->piece.pos_x + j] = 1;
+        }
+      }
+    }
+  
+}
+
+void remove_tetromino(struct Game_State *game) {
+  //if ((game->piece.pos_x < 30 && game->piece.pos_x >= 0) && (game->piece.pos_y < 72 && game->piece.pos_y >= 0)) {
+
+    for (int i = 0; i < game->piece.side * 3; i++) {
+      for (int j = 0; j < game->piece.side * 3; j++) {
+        if (game->piece.tetromino[i][j] == 1) {
+          game->board[game->piece.pos_y - i][game->piece.pos_x + j] = 0;
+        }
+      }
+    }
+  //}
+}
+
+int can_rotate(struct Game_State *game, struct Piece_State piece) {
+    for (int row = (piece.side - 1); row >= 0; row--) {
+        for (int col = 0; col < piece.side; col++) {
+
+            //check if a piece already in the new rotated location
+            if (piece.data[row][col] == 1) {
+                if (game->data_board[(piece.pos_x / 3) - row][(piece.pos_x / 3) + col] == 1) {
+                    return 1;
+                } 
+            }
+
+            //Move Left Check
+            if (piece.data[row][col] == 1) { 
+                if ((piece.pos_x / 3) + col < 0) {
+                    return 2;
+                } 
+            }   
+
+            //Move Right Check
+            if (piece.data[row][(piece.side - 1) - col] == 1) { 
+                if ((piece.pos_x / 3) + col > 9) {
+                    return 3;
+                } 
+            }  
+
+            if (piece.tetromino[row][col] == 1) {
+                if ((piece.pos_y / 3) - row < 0) {
+                    return 4;
+                }
+            }       
+        }
+    }
+    return 0;
+}
+
+void rotate_tetromino(struct Game_State *game)
+{
+    remove_tetromino(game); 
+
+    struct Piece_State piece = game->piece;
+    int N = piece.side;
+ 
+    // Traverse each cycle
+    for (int i = 0; i < N / 2; i++) {
+        for (int j = i; j < N - i - 1; j++) {
+ 
+            // Swap elements of each cycle
+            // in clockwise direction
+            int temp = piece.data[i][j];
+            piece.data[i][j] = piece.data[N - 1 - j][i];
+            piece.data[N - 1 - j][i] = piece.data[N - 1 - i][N - 1 - j];
+            piece.data[N - 1 - i][N - 1 - j] = piece.data[j][N - 1 - i];
+            piece.data[j][N - 1 - i] = temp;
+        }
+    }
+
+    for (int i = 0; i < piece.side; i++) {
+      for (int j = 0; j < piece.side; j++) {
+
+        int startY = i * 3;
+        int startX = j * 3;
+
+        for (int y = startY; y < startY + 3; y++) {
+            for (int x = startX; x < startX + 3; x++) {
+                piece.tetromino[y][x] = piece.data[i][j];
+            }
+        }
+      }
+    }
+
+    switch (can_rotate(game, piece)) {
+        case 0: 
+            game->piece = piece;
+            break;
+        case 1: 
+            if (piece.side == 4) { piece.pos_y += 3 * 3; } else { piece.pos_y += 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;
+        case 2: 
+            if (piece.side == 4) { piece.pos_x += 3 * 3; } else { piece.pos_x += 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;           
+        case 3: 
+            if (piece.side == 4) { piece.pos_x -= 3 * 3; } else { piece.pos_x -= 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;
+        case 4: 
+            if (piece.side == 4) { piece.pos_y += 3 * 3; } else { piece.pos_y += 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break; 
+    }
+    
+    merge_tetromino(game);
+}
+
+void moveLeft(struct Game_State *game)
+{
+    remove_tetromino(game);  
+    struct Piece_State piece = game->piece;
+    if (canMoveLeft(game, piece)) {
+        piece.pos_x -= 3;
+    }
+    
+    game->piece = piece;
+    merge_tetromino(game);
+}
+
+void moveRight(struct Game_State *game)
+{
+    remove_tetromino(game);  
+    struct Piece_State piece = game->piece;
+    if (canMoveRight(game, piece)) {
+        piece.pos_x += 3;
+    }
+    
+    game->piece = piece;
+    merge_tetromino(game);
+}
+
+bool canMoveLeft(struct Game_State *game, struct Piece_State piece)
+{
+    for (int row = (piece.side - 1); row >= 0; --row) {
+        for (int col = 0; col < piece.side; col++) {
+            if (piece.data[row][col] == 1) { 
+                if (((piece.pos_x / 3) - 1 + col < 0) || (game->data_board[(piece.pos_y / 3) - row][(piece.pos_x / 3) - 1 + col] == 1)) {
+                    return false;
+                } 
+            }    
+        }
+    }
+    return true;
+}
+
+bool canMoveRight(struct Game_State *game, struct Piece_State piece)
+{
+    for (int row = (piece.side - 1); row >= 0; --row) {
+        for (int col = (piece.side - 1); col >= 0; --col) {
+            if (piece.data[row][col] == 1) { 
+                if (((piece.pos_x / 3) + 1 + col > 9) || (game->data_board[(piece.pos_y / 3) - row][(piece.pos_x / 3) + 1 + col] == 1)) {
+                    return false;
+                } 
+            }    
+        }
+    }
+    return true;
+}
+
+
+bool canMoveDown(struct Game_State *game, struct Piece_State piece)
+{
+    for (int row = (piece.side - 1); row >= 0; row--) {
+        for (int col = 0; col < piece.side; col++) {
+            if (piece.data[row][col] == 1) {
+                if (((piece.pos_y / 3) - 1 - row < 0) || (game->data_board[(piece.pos_y / 3) - 1 - row][(piece.pos_x / 3) + col] == 1)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+void moveDown(struct Game_State *game)
+{
+    remove_tetromino(game);  
+    struct Piece_State piece = game->piece;
+    if (canMoveDown(game, piece)) {
+        piece.pos_y -= 1;
+    }
+    
+    game->piece = piece;
+    merge_tetromino(game);
+}
+
+void convert_to_board(struct Game_State *game) {
+
+    for (int i = 0; i < 72; i++) {
+        for (int j = 0; j < 30; j++) {
+            if (game->data_board[i / 3][j / 3] == 1) {
+                game->board[i][j] = 1;
+            } else { 
+                game->board[i][j] = 0; 
+            }  
+        }
+    }  
+}
+
+void convert_to_databoard(struct Game_State *game) {
+    // Iterate through the elements of the smaller array
+    for (int i = 0; i < 72; i++) {
+        for (int j = 0; j < 30; j++) {
+
+            int row = i / 3;
+            int col = j / 3;
+            if (game->board[i][j] == 1) {
+               game->data_board[row][col] = 1;
+            }   
+        }  
+    }
+}
+
+// /// MENU RENDERING
+
+//How to render the menu screen
+void render_menu_screens(struct Game_State *game, struct Menu_State *menu) {
+ // Display the menu options
+    switch (menu->screen) {
+        case MENU_SCREEN:
+            while (menu->screen == MENU_SCREEN) {
+                handle_menu(game, menu);
+                delay(100);
+                update_menu_screen(menu);
+            }
+            break;
+        case GAMEOPTION_SCREEN:
+            while (menu->screen == GAMEOPTION_SCREEN) {
+                // handle_gamemode(game);
+                // delay(100);
+                // update_gameoption_screen(game);
+            }
+            break;
+        case SETTINGS_SCREEN:
+            break;
+        case ABOUT_SCREEN:
+            break;
+    }
+
+    display_string(1, "Even more WTF!");
+    display_update();
+}
+
+void update_menu_screen(struct Menu_State *menu) {
+    clearScreen();
+
+    char start[20];
+    char settings[20];
+    char about[20];
+    char exit[20];
+
+    //Create the text
+    if (menu->currentOption != 0) { strcpy(start, "* Start");  } else { strcpy(start, "> Start"); } 
+    if (menu->currentOption != 1) { strcpy(settings, "* Settings"); } else { strcpy(settings, "> Settings"); }
+    if (menu->currentOption != 2) { strcpy(about, "* About"); } else { strcpy(about, "> About"); }
+    if (menu->currentOption != 3) { strcpy(exit, "* Exit"); } else { strcpy(exit, "> Exit"); }
+
+    display_string(0, start);
+    display_string(1, settings);
+    display_string(2, about);
+    display_string(3, exit);
+
+    //display_string(0, "WTF!");
+    display_update();
+}
+
+void update_gameoption_screen(struct Game_State *game, struct Menu_State *menu) {
+    clearScreen();
+
+    char start[20];
+    char level[20];
+    char drop[20];
+    char exit[20];
+
+
+    //Create the text
+    if (menu->currentOption != 0) { strcpy(start, "* Start");  } else { strcpy(start, "> Start"); } 
+    if (menu->currentOption != 1) { strcpy(level, "* Level: "); } else { strcpy(level, "> Level: "); }
+    if (menu->currentOption != 2) { strcpy(drop, "* Insta Drop: "); } else { strcpy(drop, "> Insta Drop: "); }
+    if (menu->currentOption != 3) { strcpy(exit, "* Exit"); } else { strcpy(exit, "> Exit"); }
+
+    strcat(level, itoaconv(game->start_level));
+    strcat(drop, itoaconv(game->instDrop));
+
+    display_string(0, start);
+    display_string(1, level);
+    display_string(2, drop);
+    display_string(3, exit);
+
+
+    display_update();
+}
+
+// ///HANDLE MENU OPTIONS
+
+// Implement this function to get the user's input and update the currentOption accordingly
+void handle_menu(struct Game_State *game, struct Menu_State *menu) {
+  int btn = getbtns();
+  if (btn == 4) { // Up
+    menu->currentOption = (menu->currentOption - 1 + 4) % 4;
+  } else if (btn == 2) { // Down
+    menu->currentOption = (menu->currentOption + 1) % 4;
+  } else if (btn == 1) { // Select
+    switch (menu->screen) {
+        case MENU_SCREEN:
+        execute_option(game, menu);
+        break;
+        case GAMEOPTION_SCREEN:
+        gameoptions(game, menu);
+        break;
+    }
+        
+  }
+}
+
+volatile int currentLevelIndex = 0;
+
+// ///HANDLE MENU EXECUTIONS
+
+void increaseLevel(struct Game_State *game) {
+    int levels[5] = {1, 5, 10, 20, 25};
+    currentLevelIndex = (currentLevelIndex + 1) % 5;
+    game->start_level = levels[currentLevelIndex];
+    game->level = levels[currentLevelIndex];
+}
+
+// Implement this function to execute the selected menu option
+void gameoptions(struct Game_State *game, struct Menu_State *menu) {
+    switch (menu->currentOption) {
+        case 0:
+            game->phase = GAME_PHASE_PLAY;
+            break;
+        case 1:
+             increaseLevel(game);
+            break;
+        case 2:
+            game->instDrop = !game->instDrop;
+            break;
+        case 3:
+            menu->screen = MENU_SCREEN;
+            break;
+    }
+}
+
+// Implement this function to execute the selected menu option
+void execute_option(struct Game_State *game, struct Menu_State *menu) {
+    switch (menu->currentOption) {
+        case 0:
+             menu->screen = GAMEOPTION_SCREEN;
+            break;
+        case 1:
+            menu->screen = SETTINGS_SCREEN;
+            break;
+        case 2:
+            menu->screen = ABOUT_SCREEN;
+            break;
+        case 3:
+            menu->screen = OFF;
+            break;
+    }
+}
+
+/**
+ * Checks if a row with rowIndex is completed. 
+ * Returns true if it is completed, false if it has any empty cells.
+*/
+bool isRowComplete(struct Game_State *game, int rowIndex)
+{
+    for (int col = 0; col < 10; col++)
+    {
+        if (game->data_board[rowIndex][col] == 0)
+        {
+            return false; // Found an empty cell, so the row is not complete
+        }
+    }
+    return true; // No empty cells found, the row is complete
+}
+
+
+/**
+ * Removes the given row and shifts down the rows above it.
+*/
+void removeRow(struct Game_State *game, int rowIndex)
+{
+        for (int i = rowIndex; i < 23; i++) {
+            for (int j = 0; j < 10; j++) {
+                game->data_board[i][j] = game->data_board[i+1][j];
+            }
+        }
+
+        for (int j = 0; j < 10; j++) {
+            game->data_board[23][j] = 0;
+        }
+}
+
+/**
+ * Func that should be called in main game loop every collision.
+ */
+bool check_and_clear_row(struct Game_State *game)
+{
+    for (int y = 0; y < 20; y++)
+    {
+        if (isRowComplete(game, y))
+        {
+            removeRow(game, y);
+            return true;
+        }
+    }
+    return false;
+}
+
+void clearAllCompletedRows(struct Game_State *game) {
+    int linesCleared = 0;
+    while (check_and_clear_row(game)) {
+        linesCleared++;
+    }
+
+    if (linesCleared > 0)
+    {
+        game->lines += linesCleared;
+        update_score(game, linesCleared);
+        update_level(game);
+    }
+}
+
+/**
+ * Simple function to update the score, dependent on level and how many lines are cleared.
+ * It's a basic version of this: https://tetris.wiki/Scoring.
+ */
+void update_score(struct Game_State *game, int linesCleared)
+{
+    switch (linesCleared)
+    {
+    case 1:
+        game->score += 10 * game->level;
+        break;
+    case 2:
+        game->score += 30 * game->level;
+        break;
+    case 3:
+        game->score += 50 * game->level;
+        break;
+    case 4:
+        game->score += 80 * game->level;
+        break;
+    default:
+        break; 
+    }
+
+    update_score_text(game->score);
+}
+
+void update_level(struct Game_State *game)
+{
+    if (game->lines >= LINES_PER_LEVEL[game->level-1]) {
+        game->lines -= LINES_PER_LEVEL[game->level-1];
+        update_level_text(game->level);
+    }
+        
 }

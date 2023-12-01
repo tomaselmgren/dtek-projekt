@@ -1,3 +1,6 @@
+#ifndef TETRIS_H_URHXV5O2
+#define TETRIS_H_URHXV5O2
+
 /* mipslab.h
    Header file for all labs.
    This file written 2015 by F Lundevall
@@ -7,25 +10,135 @@
 
    For copyright and licensing, see file COPYING */
 
-/* Declare display-related functions from mipslabfunc.c */
+#include <stdint.h>   /* Declarations of uint_32 and the like */
+#include <pic32mx.h>  /* Declarations of system-specific addresses etc */
+#include "tetris.h"  
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <stdbool.h>
+
+struct Tetromino
+{
+    int data[4][4];
+    int side;
+};
+
+enum Game_Phase
+{
+    GAME_PHASE_START,
+    GAME_PHASE_PLAY,
+    GAME_PHASE_GAMEOVER
+};
+
+struct Piece_State
+{
+    int data[4][4];
+    int tetromino[12][12];
+    int side;
+    int pos_x;
+    int pos_y;
+};
+
+enum Screens
+{
+    MENU_SCREEN,
+    GAMEOPTION_SCREEN,
+    SETTINGS_SCREEN,
+    ABOUT_SCREEN,
+    OFF
+};
+
+struct Menu_State {
+    enum Screens screen;
+    int currentOption;
+};
+
+struct Game_State
+{
+    uint8_t board[72][30];
+    uint8_t data_board[24][10];
+    struct Piece_State piece;
+    enum Game_Phase phase;
+    int start_level;
+    int instDrop;
+    int level;
+    int score;
+    int lines;
+    int next_drop_time;
+    int time;
+    int tick;
+};
+
+//Startup related functions
+void labinit(void);
+void display_init(void);
+void startup(void);
+
+struct Game_State create_game_struct(void);
+struct Menu_State create_menu_struct(void);
+void create_game(void);
+
+/* Declare display-related functions*/
 void display_image(int x, const uint8_t *data);
 void render_screen(void);
 void clearScreen(void);
-void render_gameboard(void);
-void draw_screen(void);
-void display_init(void);
+void render_gameboard(struct Game_State *game);
+void draw_screen(struct Game_State *game);
 void display_string(int line, char *s);
 void display_update(void);
-void update_score(int score);
+void render_highscore(int score);
+void render_leaderboard(void);
+
+// Tetris score and levelboard related functions
+void update_score_text(int score);
+void update_level_text(int level);
+void update_score(struct Game_State *game, int LinesCleared);
+void update_level(struct Game_State *game);
 void init_scoreboard(void);
 void init_levelboard(void);
-void handle_menu(void);
-void render_menu(void);
-void create_gameboard(void);
-void merge_tetromino(int tetromino[12][12], int x, int y);
-int convert_tetromino(int ttetromino[4][4]);
-void convertArray(int smallArr[24][10], int largeArr[24*3][10*3]);
-void render_block(int i, int j);
+void insert_score(int score);
+
+// Move related functions
+bool canMoveLeft(struct Game_State *game, struct Piece_State piece);
+void moveLeft(struct Game_State *game);
+bool canMoveRight(struct Game_State *game, struct Piece_State piece);
+void moveRight(struct Game_State *game);
+bool canMoveDown(struct Game_State *game, struct Piece_State piece);
+void moveDown(struct Game_State *game);
+int can_rotate(struct Game_State *game, struct Piece_State piece);
+void rotate_tetromino(struct Game_State *game);
+
+//Tetromino handling functions
+void merge_tetromino(struct Game_State *game);
+void set_piece_data(struct Game_State *game, struct Tetromino *tetromino);
+void set_piece_tetromino(struct Game_State *game);
+void spawn_tetromino(struct Game_State *game);
+void remove_tetromino(struct Game_State *game);
+
+//Gameboard handling functions
+void convert_to_databoard(struct Game_State *game);
+void convert_to_board(struct Game_State *game);
+
+void update_game_start(struct Game_State *game);
+void update_game_gameover(struct Game_State *game);
+void update_game_play(struct Game_State *game);
+int get_time_to_next_drop(int level);
+
+bool isRowComplete(struct Game_State *game, int rowIndex);
+bool check_and_clear_row(struct Game_State *game);
+void removeRow(struct Game_State *game, int rowIndex);
+void clearAllCompletedRows(struct Game_State *game);
+
+
+void render_menu_screens(struct Game_State *game, struct Menu_State *menu);
+void update_menu_screen(struct Menu_State *menu);
+
+void update_gameoption_screen(struct Game_State *game, struct Menu_State *menu);
+void handle_menu(struct Game_State *game, struct Menu_State *menu);
+void increaseLevel(struct Game_State *game);
+void gameoptions(struct Game_State *game, struct Menu_State *menu);
+void execute_option(struct Game_State *game, struct Menu_State *menu);
 
 uint8_t spi_send_recv(uint8_t data);
 
@@ -54,13 +167,12 @@ void display_debug( volatile int * const addr );
 extern const uint8_t const font[128*8];
 /* Declare bitmap array containing icon */
 extern const uint8_t const icon[128];
-/* Declare bitmap array containing board */
-extern const uint8_t const board[32*128];
 /* Declare text buffer for display output */
 extern char textbuffer[4][16];
 
 extern uint8_t image[128*4];
-extern uint8_t gameboard[24*3][10*3];
+extern uint8_t board[24*3][10*3];
+extern uint8_t data_board[24][10];
 
 extern uint8_t scoreboard[16][28];
 extern uint8_t levelboard[16][28];
@@ -82,30 +194,6 @@ extern uint8_t nine[4*7];
 extern uint8_t scoretext[28*7];
 extern uint8_t leveltext[28*7];
 
-#ifndef GAMESTATE_H
-#define GAMESTATE_H
-
-struct game_state {
-    int instDrop;
-    int score;
-    int level;
-    int FpG;
-};
-
-// Declare a pointer to the game_state struct
-extern struct game_state *game;
-
-// Function prototypes for functions defined in a different source file
-struct game_state* init_gamestate();
-void update_gamestate(int instDrop, int score, int level, int FpG);
-void gamestate_set_instDrop(int instDrop);
-void gamestate_set_score(int score);
-void gamestate_set_level(int level);
-void gamestate_set_FpG(int FpG);
-
-#endif // GAMESTATE_H
-
-
 /* Declare functions written by students.
    Note: Since we declare these functions here,
    students must define their functions with the exact types
@@ -117,3 +205,5 @@ void time2string( char *, int );
 int getbtns(void);
 int getsw(void);
 void enable_interrupt(void);
+
+#endif

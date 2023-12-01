@@ -12,7 +12,7 @@ PROGNAME	= outfile
 LINKSCRIPT	:= p$(shell echo "$(DEVICE)" | tr '[:upper:]' '[:lower:]').ld
 
 # Compiler and linker flags
-CFLAGS		+= -ffreestanding -march=mips32r2 -msoft-float -std=c11 -Wa,-msoft-float
+CFLAGS		+= -ffreestanding -march=mips32r2 -msoft-float -std=c99 -Wa,-msoft-float
 ASFLAGS		+= -msoft-float
 LDFLAGS		+= -T $(LINKSCRIPT) -lc
 
