@@ -113,29 +113,30 @@ void display_string(int line, char *s) {
 #define EXIT 3
 
 //insert the score after a game
-void insert_score(struct Leaderboard *leaderboard, int score) {
- int i;
+void insert_score(struct Leaderboard *leaderboard, struct PlayerScore playerScore) {
+    int i;
 
- for (i = 0; i < 1000; i++) {
-    if (score > leaderboard->leaderboard[i]) {
-      break;
+    // Find the correct position to insert the new score
+    for (i = 0; i < 100; i++) {
+        if (playerScore.score > leaderboard->leaderboard[i].score || leaderboard->leaderboard[i].score == 0) {
+            break;
+        }
     }
- }
 
- if (i == 1000) {
-    return;
- }
+    // Shift elements to make space for the new score
+    for (int j = 99; j > i; j--) {
+        leaderboard->leaderboard[j].score = leaderboard->leaderboard[j - 1].score;
+        strcpy(leaderboard->leaderboard[j].initials, leaderboard->leaderboard[j - 1].initials);
+    }
 
- for (int j = 9; j >= i; j--) {
-    leaderboard->leaderboard[j+1] = leaderboard->leaderboard[j];
- }
-
- leaderboard->leaderboard[i] = score;
+    // Insert the new score and initials
+    leaderboard->leaderboard[i].score = playerScore.score;
+    strcpy(leaderboard->leaderboard[i].initials, playerScore.initials);
 }
 
 //If player has gotten a new highscore render it
 void render_highscore(struct Leaderboard *leaderboard, int score) {
- if (leaderboard->leaderboard[0] < score) {
+ if (leaderboard->leaderboard[0].score < score) {
   clearScreen();
   display_string(0, "New Highscore!");
   display_string(1, itoaconv(score));
@@ -147,11 +148,17 @@ void render_highscore(struct Leaderboard *leaderboard, int score) {
 void render_leaderboard(struct Leaderboard *leaderboard) {
  clearScreen();
 
- display_string(0, "Leaderboard Top 3");
+ display_string(0, "Leaderboard Top 3:");
+ 
  //Get Score
  for (int i = 0; i < 3; i++) {
-    display_string(i+1, itoaconv(leaderboard->leaderboard[i]));
+    if (leaderboard->leaderboard[i].score != 0) {
+      char text[20];
+      strcpy(text, leaderboard->leaderboard[i].initials);
+      display_string(i+1, strcat(text, itoaconv(leaderboard->leaderboard[i].score)));
+    }
  }
+
  display_update();
 }
 

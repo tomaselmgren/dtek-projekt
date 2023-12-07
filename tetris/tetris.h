@@ -84,11 +84,11 @@ struct pcg32_random_t {
 struct PlayerScore {
     int score;
     char initials[4]; // 3 initials max + 1 for the null terminator
-}
+};
 
 struct Leaderboard {
   int currentHighscore;
-  PlayerScore leaderboard[1000];
+  struct PlayerScore leaderboard[100];
 };
 
 
@@ -119,7 +119,7 @@ void update_score(struct Game_State *game, int LinesCleared);
 void update_level(struct Game_State *game);
 void init_scoreboard(void);
 void init_levelboard(void);
-void insert_score(struct Leaderboard *leaderboard, int score);
+void insert_score(struct Leaderboard *leaderboard, struct PlayerScore playerScore);
 
 // Move related functions
 bool canMoveLeft(struct Game_State *game, struct Piece_State piece);
