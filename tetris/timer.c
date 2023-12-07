@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <stdlib.h>
 #include <stdbool.h>
 
 /* Interrupt Service Routine */
@@ -26,7 +25,7 @@ void labinit(void) {
 
   // Initialize Timer 2 for timeouts every 100 ms
   T2CON = 0x70; // Enable Timer 2, 1:256 prescaler
-  PR2 = 31250; // Period register counts down from 3906 at 80 MHz, which is 100 ms
+  PR2 = (31250 / 6); // Period register counts down from 3906 at 80 MHz, which is 100 ms. divide by 6 should make it 60 fps
   TMR2 = 0;
   T2CONSET = 0x8000;
 

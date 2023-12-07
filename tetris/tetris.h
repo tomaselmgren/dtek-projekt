@@ -57,18 +57,33 @@ struct Menu_State {
 struct Game_State
 {
     uint8_t board[72][30];
-    uint8_t data_board[24][10];
+    uint8_t data_board[72][30];
+    
+    int nextPieceIndex;
     struct Piece_State piece;
+
     enum Game_Phase phase;
+
     int start_level;
     int instDrop;
     int level;
     int score;
     int lines;
-    int next_drop_time;
     int time;
     int tick;
 };
+
+struct pcg32_random_t {
+    uint64_t state;
+    uint64_t increment;
+    bool has_seed;
+};
+
+struct Leaderboard {
+  int currentHighscore;
+  int leaderboard[1000];
+};
+
 
 //Startup related functions
 void labinit(void);
@@ -106,6 +121,7 @@ bool canMoveRight(struct Game_State *game, struct Piece_State piece);
 void moveRight(struct Game_State *game);
 bool canMoveDown(struct Game_State *game, struct Piece_State piece);
 void moveDown(struct Game_State *game);
+void hardDrop(struct Game_State *game);
 int can_rotate(struct Game_State *game, struct Piece_State piece);
 void rotate_tetromino(struct Game_State *game);
 
@@ -113,23 +129,23 @@ void rotate_tetromino(struct Game_State *game);
 void merge_tetromino(struct Game_State *game);
 void set_piece_data(struct Game_State *game, struct Tetromino *tetromino);
 void set_piece_tetromino(struct Game_State *game);
+void set_next_piece(struct Game_State *game, int index);
 void spawn_tetromino(struct Game_State *game);
 void remove_tetromino(struct Game_State *game);
 
 //Gameboard handling functions
-void convert_to_databoard(struct Game_State *game);
-void convert_to_board(struct Game_State *game);
+void board_to_databoard(struct Game_State *game);
+void databoard_to_board(struct Game_State *game);
 
 void update_game_start(struct Game_State *game);
 void update_game_gameover(struct Game_State *game);
 void update_game_play(struct Game_State *game);
-int get_time_to_next_drop(int level);
+double get_time_to_next_drop(int level);
 
 bool isRowComplete(struct Game_State *game, int rowIndex);
 bool check_and_clear_row(struct Game_State *game);
 void removeRow(struct Game_State *game, int rowIndex);
 void clearAllCompletedRows(struct Game_State *game);
-
 
 void render_menu_screens(struct Game_State *game, struct Menu_State *menu);
 void update_menu_screen(struct Menu_State *menu);
@@ -139,6 +155,12 @@ void handle_menu(struct Game_State *game, struct Menu_State *menu);
 void increaseLevel(struct Game_State *game);
 void gameoptions(struct Game_State *game, struct Menu_State *menu);
 void execute_option(struct Game_State *game, struct Menu_State *menu);
+
+//random pcg generator
+void seed(struct pcg32_random_t* rng);
+void pcg32_srandom_r(struct pcg32_random_t* rng, uint64_t initstate, uint64_t initseq);
+uint32_t pcg32_random_r(struct pcg32_random_t* rng);
+uint32_t pcg32_boundedrand_r(struct pcg32_random_t* rng, uint32_t bound);
 
 uint8_t spi_send_recv(uint8_t data);
 
@@ -171,13 +193,11 @@ extern const uint8_t const icon[128];
 extern char textbuffer[4][16];
 
 extern uint8_t image[128*4];
-extern uint8_t board[24*3][10*3];
-extern uint8_t data_board[24][10];
 
 extern uint8_t scoreboard[16][28];
 extern uint8_t levelboard[16][28];
 
-extern uint8_t largeTetromino[12][12];
+extern uint8_t next_piece[12][12];
 
 /* Declare bitmap array containing the numbers used in the score- and levelboard*/
 extern uint8_t zero[4*7];

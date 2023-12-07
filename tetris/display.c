@@ -112,36 +112,30 @@ void display_string(int line, char *s) {
 #define ABOUT 2
 #define EXIT 3
 
-struct leaderboard {
-  int scores[10];
-};
-
-struct leaderboard leader;
-
 //insert the score after a game
-void insert_score(int score) {
+void insert_score(struct Leaderboard *leaderboard, int score) {
  int i;
 
- for (i = 0; i < 10; i++) {
-    if (score > leader.scores[i]) {
+ for (i = 0; i < 1000; i++) {
+    if (score > leaderboard->leaderboard[i]) {
       break;
     }
  }
 
- if (i == 10) {
+ if (i == 1000) {
     return;
  }
 
  for (int j = 9; j >= i; j--) {
-    leader.scores[j+1] = leader.scores[j];
+    leaderboard->leaderboard[j+1] = leaderboard->leaderboard[j];
  }
 
- leader.scores[i] = score;
+ leaderboard->leaderboard[i] = score;
 }
 
 //If player has gotten a new highscore render it
-void render_highscore(int score) {
- if (leader.scores[0] < score) {
+void render_highscore(struct Leaderboard *leaderboard, int score) {
+ if (leaderboard->leaderboard[0] < score) {
   clearScreen();
   display_string(0, "New Highscore!");
   display_string(1, itoaconv(score));
@@ -150,13 +144,13 @@ void render_highscore(int score) {
 }
 
 //render the leaderboard after a game
-void render_leaderboard() {
+void render_leaderboard(struct Leaderboard *leaderboard) {
  clearScreen();
 
- display_string(0, "Leaderboard");
+ display_string(0, "Leaderboard Top 3");
  //Get Score
  for (int i = 0; i < 3; i++) {
-    display_string(i+1, itoaconv(leader.scores[i]));
+    display_string(i+1, itoaconv(leaderboard->leaderboard[i]));
  }
  display_update();
 }
@@ -231,6 +225,9 @@ void clearScreen() {
 #define boardHeight 60
 #define boardWidth 30
 
+#define nextPieceHeight 12
+#define nextPieceWidth 12
+
 #define scoreHeight 16
 #define scoreWidth 28
 
@@ -257,6 +254,9 @@ void render_gameboard(struct Game_State *game) {
             int boardX = (i - screenXStart);
             int boardY = (j - screenYStart);
 
+            int nextPieceX = (i - 10);
+            int nextPieceY = (j - 85);
+
             int scoreX = (i - scoreXStart);
             int scoreY = (j - scoreYStart);
 
@@ -272,6 +272,17 @@ void render_gameboard(struct Game_State *game) {
                 if ((game->board[boardY][boardX] == 1)) {
                   turnOnPixel(i, j);
                 }
+            }
+
+            // Rendering nextPiece
+            if (nextPieceX >= 0 && nextPieceX < nextPieceWidth && nextPieceY >= 0 && nextPieceY < nextPieceHeight) {
+                if ((next_piece[(nextPieceHeight - 1) - nextPieceY][nextPieceX] == 1)) {
+                  turnOnPixel(i, j);
+                }
+            }
+
+            if (j == (85 + nextPieceHeight + 2)) {
+               turnOnPixel(i, j);
             }
 
             // Rendering scoreboard
