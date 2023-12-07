@@ -79,9 +79,16 @@ struct pcg32_random_t {
     bool has_seed;
 };
 
+// When a player finishes a game, create a PlayerScore struct with the player's
+// score and initials, and add it to the leaderboard array in the Leaderboard struct.
+struct PlayerScore {
+    int score;
+    char initials[4]; // 3 initials max + 1 for the null terminator
+}
+
 struct Leaderboard {
   int currentHighscore;
-  int leaderboard[1000];
+  PlayerScore leaderboard[1000];
 };
 
 

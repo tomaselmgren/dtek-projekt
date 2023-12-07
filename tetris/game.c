@@ -346,6 +346,53 @@ void update_game_play(struct Game_State *game) {
     }
 }
 
+void choose_initials(struct Game_State *game, int score) {
+    char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    int numChars = sizeof(characters) - 1; // -1 to exclude the null terminator
+
+    char initials[4] = "AAA"; // Array to store the three initials
+    int currentIndex = 0;     // Index for the current character in the character array
+    int editingInitial = 0;   // Index for which initial is being edited
+
+    clearScreen();
+
+    int btns = getbtns();
+    int sw = getsw();
+
+    while (btns != 4 ) { // Don't know if this works, the idea is that the input loop is broken when button 4 is pressed. Could be swapped out to while switch is active.
+
+        if (sw + 0 == 0) // Not entirely sure about the switch arithmetic. This should be switch 1
+        {
+            editingInitial = 0;
+        }
+        else if (sw + 0 == 2) // Switch 2
+        {
+            editingInitial = 1;
+        }
+        else if (sw + 0 == 4) // Switch 3
+        {
+            editingInitial = 2;
+        }
+
+        display_string(initials, editingInitial);   // Display the current initials and which initial is being edited.
+
+        if (btns == 1) 
+        { // move to previous character
+            currentIndex = (currentIndex - 1 + numChars) % numChars;
+            initials[editingInitial] = characters[currentIndex]
+        }
+        else if (btns == 2)
+        { // move to the next character
+            currentIndex = (currentIndex + 1) % numChars;
+            initials[editingInitial] = characters[currentIndex];
+        }
+
+        delay(50);
+    }
+    // Insert game score here?
+    // insert_score(&leaderboard, ....)
+}
+
 void update_game_gameover(struct Game_State *game) {  
     while (game->phase == GAME_PHASE_GAMEOVER) {
         int btn = getbtns();
