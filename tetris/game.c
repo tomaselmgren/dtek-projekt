@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 struct pcg32_random_t rng;
+struct Leaderboard leaderboard;
 
 int main(void) {
     startup();
@@ -352,10 +353,10 @@ void update_game_gameover(struct Game_State *game) {
             break;
         }
 
-        render_highscore(game->score);
+        render_highscore(&leaderboard, game->score);
     }
 
-    insert_score(game->score);
+    insert_score(&leaderboard, game->score);
 
     while (game->phase == GAME_PHASE_GAMEOVER) {
         int btn = getbtns();
@@ -363,7 +364,7 @@ void update_game_gameover(struct Game_State *game) {
             update_game_struct(game);
         }
 
-        render_leaderboard();
+        render_leaderboard(&leaderboard);
     }
 }
 

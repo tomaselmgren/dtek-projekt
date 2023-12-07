@@ -102,8 +102,8 @@ void render_gameboard(struct Game_State *game);
 void draw_screen(struct Game_State *game);
 void display_string(int line, char *s);
 void display_update(void);
-void render_highscore(int score);
-void render_leaderboard(void);
+void render_highscore(struct Leaderboard *leaderboard, int score);
+void render_leaderboard(struct Leaderboard *leaderboard);
 
 // Tetris score and levelboard related functions
 void update_score_text(int score);
@@ -112,7 +112,7 @@ void update_score(struct Game_State *game, int LinesCleared);
 void update_level(struct Game_State *game);
 void init_scoreboard(void);
 void init_levelboard(void);
-void insert_score(int score);
+void insert_score(struct Leaderboard *leaderboard, int score);
 
 // Move related functions
 bool canMoveLeft(struct Game_State *game, struct Piece_State piece);
