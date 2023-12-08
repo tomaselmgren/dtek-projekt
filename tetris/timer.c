@@ -32,52 +32,50 @@ void labinit(void) {
   return; 
 }
 
-/* This function is called repetitively from the main program */
-void labwork( void )
-{
-  volatile int *porte = (volatile int*) 0xbf886110;
-  volatile int *LED = (volatile int*) 0xbf886110; 
+void startup() {
+           /*
+	  This will set the peripheral bus clock to the same frequency
+	  as the sysclock. That means 80 MHz, when the microcontroller
+	  is running at 80 MHz. Changed 2017, as recommended by Axel.
+	*/
+	SYSKEY = 0xAA996655;  /* Unlock OSCCON, step 1 */
+	SYSKEY = 0x556699AA;  /* Unlock OSCCON, step 2 */
+	while(OSCCON & (1 << 21)); /* Wait until PBDIV ready */
+	OSCCONCLR = 0x180000; /* clear PBDIV bit <0,1> */
+	while(OSCCON & (1 << 21));  /* Wait until PBDIV ready */
+	SYSKEY = 0x0;  /* Lock OSCCON */
 
-  int sw;
-  int btn;
+	/* Set up output pins */
+	AD1PCFG = 0xFFFF;
+	ODCE = 0x0;
+	TRISECLR = 0xFF;
+	PORTE = 0x0;
 
-  
+	/* Output pins for display signals */
+	PORTF = 0xFFFF;
+	PORTG = (1 << 9);
+	ODCF = 0x0;
+	ODCG = 0x0;
+	TRISFCLR = 0x70;
+	TRISGCLR = 0x200;
 
-  // // Test the time-out event flag
-  // if (IFS(0) & 0x100) {
-  //   // Reset the time-out event flag
-  //   IFS(0) = 0;
-  //   // Increment the counter
-  //   timeoutcount++;
-  // } 
-  //   sw = getsw();
-  //   btn = getbtns();
-    
-  //   //button 4 (0100)
-  //   if(btn == 4){
-  //     mytime = mytime & 0x0fff;
-  //     mytime = (sw<<12) | mytime ;
-  //   }
-  //   //button 3 (0010)
-  //   if(btn == 2){
-  //     mytime = mytime & 0xf0ff;
-  //     mytime = (sw<<8) | mytime ;
-  //   }
-  //   //button 2 (0001)
-  //   if(btn == 1){
-  //     mytime = mytime & 0xff0f;
-  //     mytime = (sw<<4) | mytime ;
-  //   }
+	/* Set up input pins */
+	TRISDSET = (1 << 8);
+	TRISFSET = (1 << 1);
 
-  //   // If the counter has reached 10, call the time2string, display_string, display_update, and tick functions
-  //   if (timeoutcount == 10) {
-  //     time2string( textstring, mytime );
-  //     display_string( 3, textstring );
-  //     tick( &mytime );
-  //     *LED = *LED + 0x1;
-  //     timeoutcount = 0;
-      
-  //   }
-    // display_update();
-    // display_image(0, icon);
+	/* Set up SPI as master */
+	SPI2CON = 0;
+	SPI2BRG = 4;
+	/* SPI2STAT bit SPIROV = 0; */
+	SPI2STATCLR = 0x40;
+	/* SPI2CON bit CKP = 1; */
+        SPI2CONSET = 0x40;
+	/* SPI2CON bit MSTEN = 1; */
+	SPI2CONSET = 0x20;
+	/* SPI2CON bit ON = 1; */
+	SPI2CONSET = 0x8000;
+
+	display_init();
+	display_update();
+	labinit();
 }

@@ -17,3 +17,66 @@ int getbtns(void) {
     return (PORTD >> 5) & 0x0007; // Return the three least significant bits
 }
 
+
+
+// ///HANDLE MENU OPTIONS
+
+// Implement this function to get the user's input and update the currentOption accordingly
+void handle_menu(struct Game_State *game, struct Menu_State *menu) {
+  int btn = getbtns();
+  if (btn == 4) { // Up
+    menu->currentOption = (menu->currentOption - 1 + 3) % 3;
+  } else if (btn == 2) { // Down
+    menu->currentOption = (menu->currentOption + 1) % 3;
+  } else if (btn == 1) { // Select
+    switch (menu->screen) {
+        case MENU_SCREEN:
+        execute_option(game, menu);
+        break;
+        case GAMEOPTION_SCREEN:
+        gameoptions(game, menu);
+        break;
+    }
+
+  }
+}
+
+// ///HANDLE MENU EXECUTIONS
+volatile int currentLevelIndex = 0;
+
+void increaseLevel(struct Game_State *game) {
+    int levels[5] = {1, 5, 10, 20, 25};
+    currentLevelIndex = (currentLevelIndex + 1) % 5;
+    game->start_level = levels[currentLevelIndex];
+    game->level = levels[currentLevelIndex];
+}
+
+// Implement this function to execute the selected menu option
+void gameoptions(struct Game_State *game, struct Menu_State *menu) {
+    switch (menu->currentOption) {
+        case 0:
+            game->phase = GAME_PHASE_PLAY;
+            break;
+        case 1:
+            increaseLevel(game);
+            break;
+        case 2:
+            menu->screen = MENU_SCREEN;
+            break;
+    }
+}
+
+// Implement this function to execute the selected menu option
+void execute_option(struct Game_State *game, struct Menu_State *menu) {
+    switch (menu->currentOption) {
+        case 0:
+             menu->screen = GAMEOPTION_SCREEN;
+            break;
+        case 1:
+            menu->screen = LEADERBOARD_SCREEN;
+            break;
+        case 2:
+            game->phase = GAME_EXIT;
+            break;
+    }
+}

@@ -5,329 +5,322 @@
 #include <math.h>
 #include <stdbool.h>
 
-/**
- * Temporary file, to be integrated with game functions once we can comprehensively test on board.
- * 
-*/
+struct Tetromino TETROMINOS[] = {
+    { .data = { {0, 0, 0, 0},
+                {1, 1, 1, 1},
+                {0, 0, 0, 0},
+                {0, 0, 0, 0} }, .side = 4 },
 
-// static const int FRAMES_PER_DROP[] = {
-//     48,
-//     43,
-//     38,
-//     33,
-//     28,
-//     23,
-//     18,
-//     13,
-//     8,
-//     6,
-//     5,
-//     5,
-//     5,
-//     4,
-//     4,
-//     4,
-//     3,
-//     3,
-//     3,
-//     2,
-//     2,
-//     2,
-//     2,
-//     2,
-//     2,
-//     2,
-//     2,
-//     2,
-//     2,
-//     1
-// };
+    { .data = { {1, 0, 0},
+                {1, 1, 1},
+                {0, 0, 0} }, .side = 3 },
 
-// static const float TARGET_SECONDS_PER_FRAME = 1.f / 60.f;
+    { .data = { {0, 0, 1},
+                {1, 1, 1},
+                {0, 0, 0} }, .side = 3 },
 
-// #define TETROMINO_SIZE 4
-// // Define tetrominoes
-// int I_Tetromino[TETROMINO_SIZE][TETROMINO_SIZE] = {
-//     {0, 0, 0, 0},
-//     {1, 1, 1, 1},
-//     {0, 0, 0, 0},
-//     {0, 0, 0, 0}
-// };
+    { .data = { {1, 1},
+                {1, 1} }, .side = 2 },
 
-// int L_Tetromino[TETROMINO_SIZE][TETROMINO_SIZE] = {
-//     {0, 0, 0, 0},
-//     {1, 0, 0, 0},
-//     {1, 1, 1, 0},
-//     {0, 0, 0, 0}
-// };
+    { .data = { {0, 1, 1},
+                {1, 1, 0},
+                {0, 0, 0} }, .side = 3 },
 
-// int O_Tetromino[TETROMINO_SIZE][TETROMINO_SIZE] = {
-//     {0, 0, 0, 0},
-//     {0, 1, 1, 0},
-//     {0, 1, 1, 0},
-//     {0, 0, 0, 0}
-// };
+    { .data = { {1, 1, 0},
+                {0, 1, 1},
+                {0, 0, 0} }, .side = 3 },
 
-// int S_Tetromino[TETROMINO_SIZE][TETROMINO_SIZE] = {
-//     {0, 0, 0, 0},
-//     {0, 0, 1, 1},
-//     {0, 1, 1, 0},
-//     {0, 0, 0, 0}
-// };
+    { .data = { {0, 1, 0},
+                {1, 1, 1},
+                {0, 0, 0} }, .side = 3 }
+};
 
-// int Z_Tetromino[TETROMINO_SIZE][TETROMINO_SIZE] = {
-//     {0, 0, 0, 0},
-//     {1, 1, 0, 0},
-//     {0, 1, 1, 0},
-//     {0, 0, 0, 0}};
+int SPAWN_POSITIONS[] = {9,12,15};
 
-// int T_Tetromino[TETROMINO_SIZE][TETROMINO_SIZE] = {
-//     {0, 0, 0, 0},
-//     {0, 1, 1, 1},
-//     {0, 0, 1, 0},
-//     {0, 0, 0, 0}
-// };
+void set_piece_data(struct Game_State *game, struct Tetromino *tetromino)
+{
+    for (int row = 0; row < tetromino->side; row++) {
+        for (int col = 0; col < tetromino->side; col++) {
+            game->piece.data[row][col] = tetromino->data[row][col];
+        }
+    }
 
-// struct Tetromino TETROMINOS[6][2] = {
-//     { I_Tetromino, 4 },
-//     { L_Tetromino, 4 },
-//     { O_Tetromino, 4 },
-//     { S_Tetromino, 4 },
-//     { Z_Tetromino, 4 },
-//     { T_Tetromino, 4 }
-// };
+    game->piece.side = tetromino->side;
+    set_piece_tetromino(game);
+}
+
+void set_piece_tetromino(struct Game_State *game) {
+    for (int i = 0; i < game->piece.side; i++) {
+      for (int j = 0; j < game->piece.side; j++) {
+
+        int startY = i * 3;
+        int startX = j * 3;
+
+        for (int y = startY; y < startY + 3; y++) {
+            for (int x = startX; x < startX + 3; x++) {
+                game->piece.tetromino[y][x] = game->piece.data[i][j];
+            }
+        }
+      }
+    }
+}
+
+void spawn_tetromino(struct Game_State *game) {
+
+    set_piece_data(game, &TETROMINOS[game->nextPieceIndex]);
+    set_next_piece(game, pcg32_boundedrand_r(game, 7));
+
+    game->piece.pos_x = SPAWN_POSITIONS[pcg32_boundedrand_r(game, 3)];
+    game->piece.pos_y = 71;
+    game->tick = 0;
+    game->time = 0;
+
+    merge_tetromino(game);
+}
+
+void set_next_piece(struct Game_State *game, int index) {
+    game->nextPieceIndex = index;
+    struct Tetromino tetromino = TETROMINOS[game->nextPieceIndex];
+
+    for (int i = 0; i < 12; i++) {
+        for (int j = 0; j < 12; j++) {
+            next_piece[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 4; j++) {
+
+        int startY = i * 3;
+        int startX = j * 3;
+
+        for (int y = startY; y < startY + 3; y++) {
+            for (int x = startX; x < startX + 3; x++) {
+                next_piece[y][x] = tetromino.data[i][j];
+            }
+        }
+      }
+    }
+}
+
+void merge_tetromino(struct Game_State *game) {
+    for (int i = 0; i < game->piece.side * 3; i++) {
+      for (int j = 0; j < game->piece.side * 3; j++) {
+        if (game->piece.tetromino[i][j] == 1) {
+          game->board[game->piece.pos_y - i][game->piece.pos_x + j] = 1;
+        }
+      }
+    }
+}
+
+void remove_tetromino(struct Game_State *game) {
+    for (int i = 0; i < game->piece.side * 3; i++) {
+      for (int j = 0; j < game->piece.side * 3; j++) {
+        if (game->piece.tetromino[i][j] == 1) {
+          game->board[game->piece.pos_y - i][game->piece.pos_x + j] = 0;
+        }
+      }
+    }
+}
+
+int can_rotate(struct Game_State *game, struct Piece_State piece) {
+    for (int row = (piece.side * 3 - 1); row >= 0; row--) {
+        for (int col = 0; col < piece.side * 3; col++) {
+
+            //check if a piece already in the new rotated location
+            if (piece.tetromino[row][col] == 1) {
+                if (game->data_board[piece.pos_y - row][piece.pos_x + col] == 1) {
+                    return 1;
+                }
+            }
+
+            //Move Left Check
+            if (piece.tetromino[row][col] == 1) {
+                if (piece.pos_x + col < 0) {
+                    return 2;
+                }
+            }
+
+            //Move Right Check
+            if (piece.tetromino[row][(piece.side - 1) - col] == 1) {
+                if (piece.pos_x + col > 29) {
+                    return 3;
+                }
+            }
+
+            //Move Down Check
+            if (piece.tetromino[row][col] == 1) {
+                if (piece.pos_y - row < 0) {
+                    return 4;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+void rotate_tetromino(struct Game_State *game)
+{
+    remove_tetromino(game);
+
+    struct Piece_State piece = game->piece;
+    int N = piece.side;
+
+    // Traverse each cycle
+    for (int i = 0; i < N / 2; i++) {
+        for (int j = i; j < N - i - 1; j++) {
+
+            // Swap elements of each cycle
+            // in clockwise direction
+            int temp = piece.data[i][j];
+            piece.data[i][j] = piece.data[N - 1 - j][i];
+            piece.data[N - 1 - j][i] = piece.data[N - 1 - i][N - 1 - j];
+            piece.data[N - 1 - i][N - 1 - j] = piece.data[j][N - 1 - i];
+            piece.data[j][N - 1 - i] = temp;
+        }
+    }
+
+    for (int i = 0; i < piece.side; i++) {
+      for (int j = 0; j < piece.side; j++) {
+
+        int startY = i * 3;
+        int startX = j * 3;
+
+        for (int y = startY; y < startY + 3; y++) {
+            for (int x = startX; x < startX + 3; x++) {
+                piece.tetromino[y][x] = piece.data[i][j];
+            }
+        }
+      }
+    }
+
+    switch (can_rotate(game, piece)) {
+        case 0:
+            game->piece = piece;
+            break;
+        case 1:
+            break; 
+        case 2:
+            if (piece.side == 4) { piece.pos_x += 3 * 3; } else { piece.pos_x += 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;
+        case 3:
+            if (piece.side == 4) { piece.pos_x -= 3 * 3; } else { piece.pos_x -= 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;
+        case 4:
+            if (piece.side == 4) { piece.pos_y += 3 * 3; } else { piece.pos_y += 3; }
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;
+    }
+
+    merge_tetromino(game);
+}
+
+void moveLeft(struct Game_State *game)
+{
+    remove_tetromino(game);
+    struct Piece_State piece = game->piece;
+    if (canMoveLeft(game, piece)) {
+        piece.pos_x -= 3;
+    }
+
+    game->piece = piece;
+    merge_tetromino(game);
+}
+
+void moveRight(struct Game_State *game)
+{
+    remove_tetromino(game);
+    struct Piece_State piece = game->piece;
+    if (canMoveRight(game, piece)) {
+        piece.pos_x += 3;
+    }
+
+    game->piece = piece;
+    merge_tetromino(game);
+}
+
+bool canMoveLeft(struct Game_State *game, struct Piece_State piece)
+{
+    for (int row = (piece.side * 3 - 1); row >= 0; --row) {
+        for (int col = 0; col < piece.side * 3; col++) {
+            if (piece.tetromino[row][col] == 1) {
+                if ((piece.pos_x - 3 + col < 0) || (game->data_board[piece.pos_y - row][piece.pos_x - 1 + col] == 1)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool canMoveRight(struct Game_State *game, struct Piece_State piece)
+{
+
+    for (int row = (piece.side * 3 - 1); row >= 0; --row) {
+        for (int col = (piece.side * 3 - 1); col >= 0; --col) {
+            if (piece.tetromino[row][col] == 1) {
+                if ((piece.pos_x + 3 + col > 29) || (game->data_board[piece.pos_y - row][piece.pos_x + 1 + col] == 1)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
 
 
-// // Rotate the 4x4 Matrix
-// void rotateTetromino(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int *rotationState)
-// {
-//     int temp[TETROMINO_SIZE][TETROMINO_SIZE];
+bool canMoveDown(struct Game_State *game, struct Piece_State piece)
+{
+    for (int row = (piece.side * 3 - 1); row >= 0; row--) {
+        for (int col = 0; col < piece.side * 3; col++) {
+            if (piece.tetromino[row][col] == 1) {
+                if ((piece.pos_y - 1 - row < 0) || (game->data_board[piece.pos_y - 1 - row][piece.pos_x + col] == 1))  {
+                   return false;
+                }
+            }
+        }
+    }
+    return true;
+}
 
-//     for (int y = 0; y < TETROMINO_SIZE; y++)
-//     {
-//         for (int x = 0; x < TETROMINO_SIZE; x++)
-//         {
-//             temp[y][x] = tetromino[TETROMINO_SIZE - x - 1][y];
-//         }
-//     }
+void moveDown(struct Game_State *game)
+{
+    struct Piece_State piece = game->piece;
+    remove_tetromino(game);
 
-//     // Copy back to the original tetromino
-//     for (int y = 0; y < TETROMINO_SIZE; y++)
-//     {
-//         for (int x = 0; x < TETROMINO_SIZE; x++)
-//         {
-//             tetromino[y][x] = temp[y][x];
-//         }
-//     }
+    if (canMoveDown(game, piece)) {
+        piece.pos_y -= 1;
+    }
 
-//     // Make sure rotation stays between 0-3
-//     *rotationState = (*rotationState + 1) % 4;
-// }
+    game->piece = piece;
+    merge_tetromino(game);
 
-// // Function to determine if the given cell is a part of a tetromino or not given the rotation, row and column
-// bool isTetrominoCell(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int row, int col, int rotationState) {
-//     int rotatedRow, rotatedCol;
+}
 
-//     // Adjust row and column indices based on the rotation state
-//     switch (rotationState % 4)
-//     {       // Use modulo 4 to cycle through rotation states
-//     case 0: // 0 degrees - no rotation
-//         rotatedRow = row;
-//         rotatedCol = col;
-//         break;
-//     case 1: // 90 degrees
-//         rotatedRow = col;
-//         rotatedCol = TETROMINO_SIZE - row - 1;
-//         break;
-//     case 2: // 180 degrees
-//         rotatedRow = TETROMINO_SIZE - row - 1;
-//         rotatedCol = TETROMINO_SIZE - col - 1;
-//         break;
-//     case 3: // 270 degrees
-//         rotatedRow = TETROMINO_SIZE - col - 1;
-//         rotatedCol = row;
-//         break;
-//     }
+void hardDrop(struct Game_State *game)
+{
+    remove_tetromino(game);
+    struct Piece_State piece = game->piece;
+    while (canMoveDown(game, piece)) {
+        piece.pos_y -= 1;
+    }
 
-//     // Check if the cell is filled in the tetromino matrix
-//     return tetromino[rotatedRow][rotatedCol] != 0;
-// };
+    game->piece = piece;
+    merge_tetromino(game);
+}
 
-//     /**
-//      * These function below track the top left coordinate of the matrix.
-//      */
-
-// bool canMoveLeft(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int x, int y, int rotationState)
-// {
-//     for (int col = 0; col < TETROMINO_SIZE; col++)
-//     {
-//         for (int row = 0; row < TETROMINO_SIZE; row++)
-//         {
-//             if (isTetrominoCell(tetromino, row, col, rotationState))
-//             {
-//                 if (col + x - 1 < 0 || gameBoard[row + y][col + x - 1] != 0)
-//                 {
-//                     return false; // Can't move left
-//                 }
-//             }
-//         }
-//     }
-//     return true;
-// }
-
-// void moveLeft(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int *x, int *y)
-// {
-//     if (canMoveLeft(tetromino, *x, *y))
-//     {
-//         (*x)--;
-//     }
-// }
-
-// bool canMoveRight(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int x, int y)
-// {
-//     for (int col = TETROMINO_SIZE - 1; col >= 0; col--)
-//     {
-//         for (int row = 0; row < TETROMINO_SIZE; row++)
-//         {
-//             if (tetromino[row][col] != 0)
-//             {
-//                 if (col + x + 1 >= BOARD_WIDTH || gameBoard[row + y][col + x + 1] != 0)
-//                 {
-//                     return false; // Can't move right
-//                 }
-//                 break; // Only check the rightmost column of each row
-//             }
-//         }
-//     }
-//     return true;
-// }
-
-// void moveRight(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int *x, int *y)
-// {
-//     if (canMoveRight(tetromino, *x, *y))
-//     {
-//         (*x)++;
-//     }
-// }
-
-// bool canMoveDown(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int x, int y)
-// {
-//     for (int row = TETROMINO_SIZE - 1; row >= 0; row--)
-//     {
-//         for (int col = 0; col < TETROMINO_SIZE; col++)
-//         {
-//             if (tetromino[row][col] != 0)
-//             {
-//                 if (row + y + 1 >= BOARD_HEIGHT || gameBoard[row + y + 1][col + x] != 0)
-//                 {
-//                     return false; // Can't move down
-//                 }
-//                 break; // Only check the bottom row of each column
-//             }
-//         }
-//     }
-//     return true;
-// }
-
-// void moveDown(int tetromino[TETROMINO_SIZE][TETROMINO_SIZE], int *x, int *y)
-// {
-//     if (canMoveDown(tetromino, *x, *y))
-//     {
-//         (*y)++;
-//     }
-// }
-
-
-
-// // Temporary, integrate later with Olle's board logic
-// #define BOARD_WIDTH 10
-// #define BOARD_HEIGHT 20
-
-// int gameBoard[BOARD_HEIGHT][BOARD_WIDTH];
-
-// /**
-//  * Checks if a row with rowIndex is completed. 
-//  * Returns true if it is completed, false if it has any empty cells.
-// */
-// bool isRowComplete(int rowIndex)
-// {
-//     for (int col = 0; col < BOARD_WIDTH; col++)
-//     {
-//         if (gameBoard[rowIndex][col] == 0)
-//         {
-//             return false; // Found an empty cell, so the row is not complete
-//         }
-//     }
-//     return true; // No empty cells found, the row is complete
-// }
-
-
-// /**
-//  * Removes the given row and shifts down the rows above it.
-// */
-// void removeRow(int rowIndex)
-// {
-//     // Shift all rows above down by one
-//     for (int y = rowIndex; y > 0; y--)
-//     {
-//         for (int x = 0; x < BOARD_WIDTH; x++)
-//         {
-//             gameBoard[y][x] = gameBoard[y - 1][x];
-//         }
-//     }
-
-//     // Clear the top row (now empty)
-//     for (int x = 0; x < BOARD_WIDTH; x++)
-//     {
-//         gameBoard[0][x] = 0;
-//     }
-// }
-
-// /**
-//  * Func that should be called in main game loop every collision.
-//  */
-// void checkAndClearRows()
-// {
-//     int linesCleared = 0;
-//     for (int y = 0; y < BOARD_HEIGHT; y++)
-//     {
-//         if (isRowComplete(y))
-//         {
-//             removeRow(y);
-//             linesCleared++;
-//         }
-//     }
-
-//     if (linesCleared > 0)
-//     {
-//         updateScore(linesCleared);
-//     }
-// }
-
-// // TEMPORARY
-// int score = 0;
-
-// /**
-//  * Simple function to update the score, dependent on level and how many lines are cleared.
-//  * It's a basic version of this: https://tetris.wiki/Scoring.
-//  */
-// void updateScore(int linesCleared, int level)
-// {
-//     switch (linesCleared)
-//     {
-//     case 1:
-//         score += 100 * level;
-//         break;
-//     case 2:
-//         score += 300 * level;
-//         break;
-//     case 3:
-//         score += 500 * level;
-//         break;
-//     case 4:
-//         score += 800 * level;
-//         break;
-//     default:
-//         break; 
-//     }
-// }
+bool valid_soft_drop(struct Game_State *game) {
+    if (game->tick >= get_time_to_next_drop(game->level)) {
+        game->tick = 0;
+        return true;
+        }
+    return false;
+}

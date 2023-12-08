@@ -28,7 +28,9 @@ enum Game_Phase
 {
     GAME_PHASE_START,
     GAME_PHASE_PLAY,
-    GAME_PHASE_GAMEOVER
+    GAME_PHASE_GAMEOVER,
+    GAME_EXIT
+
 };
 
 struct Piece_State
@@ -44,33 +46,13 @@ enum Screens
 {
     MENU_SCREEN,
     GAMEOPTION_SCREEN,
-    SETTINGS_SCREEN,
-    ABOUT_SCREEN,
+    LEADERBOARD_SCREEN,
     OFF
 };
 
 struct Menu_State {
     enum Screens screen;
     int currentOption;
-};
-
-struct Game_State
-{
-    uint8_t board[72][30];
-    uint8_t data_board[72][30];
-    
-    int nextPieceIndex;
-    struct Piece_State piece;
-
-    enum Game_Phase phase;
-
-    int start_level;
-    int instDrop;
-    int level;
-    int score;
-    int lines;
-    int time;
-    int tick;
 };
 
 struct pcg32_random_t {
@@ -86,88 +68,128 @@ struct PlayerScore {
     char initials[4]; // 3 initials max + 1 for the null terminator
 };
 
+// Leaderboard to hold all PlayerScores
 struct Leaderboard {
   int currentHighscore;
   struct PlayerScore leaderboard[100];
 };
 
+//Struct to hold the entire Game State
+struct Game_State
+{
+    uint8_t board[72][30];
+    uint8_t data_board[72][30];
+    
+    int nextPieceIndex;
+    struct Piece_State piece;
+
+    enum Game_Phase phase;
+
+    int start_level;
+    int level;
+    int score;
+    int lines;
+    int time;
+    int tick;
+
+    struct pcg32_random_t rng;
+    struct Leaderboard leaderboard;
+};
 
 //Startup related functions
 void labinit(void);
 void display_init(void);
 void startup(void);
 
+/* Game creation functions*/
 struct Game_State create_game_struct(void);
 struct Menu_State create_menu_struct(void);
-void create_game(void);
+void create_game(struct Game_State *game);
 
 /* Declare display-related functions*/
 void display_image(int x, const uint8_t *data);
+void display_string(int line, char *s);
+void clear_string_display(void);
+void display_update(void);
+
 void render_screen(void);
 void clearScreen(void);
 void render_gameboard(struct Game_State *game);
 void draw_screen(struct Game_State *game);
-void display_string(int line, char *s);
-void display_update(void);
-void render_highscore(struct Leaderboard *leaderboard, int score);
-void render_leaderboard(struct Leaderboard *leaderboard);
+void render_highscore(struct Game_State *game, int score);
 
-// Tetris score and levelboard related functions
-void update_score_text(int score);
-void update_level_text(int level);
-void update_score(struct Game_State *game, int LinesCleared);
-void update_level(struct Game_State *game);
-void init_scoreboard(void);
-void init_levelboard(void);
-void insert_score(struct Leaderboard *leaderboard, struct PlayerScore playerScore);
 
-// Move related functions
-bool canMoveLeft(struct Game_State *game, struct Piece_State piece);
-void moveLeft(struct Game_State *game);
-bool canMoveRight(struct Game_State *game, struct Piece_State piece);
-void moveRight(struct Game_State *game);
-bool canMoveDown(struct Game_State *game, struct Piece_State piece);
-void moveDown(struct Game_State *game);
-void hardDrop(struct Game_State *game);
-int can_rotate(struct Game_State *game, struct Piece_State piece);
-void rotate_tetromino(struct Game_State *game);
-
-//Tetromino handling functions
-void merge_tetromino(struct Game_State *game);
-void set_piece_data(struct Game_State *game, struct Tetromino *tetromino);
-void set_piece_tetromino(struct Game_State *game);
-void set_next_piece(struct Game_State *game, int index);
-void spawn_tetromino(struct Game_State *game);
-void remove_tetromino(struct Game_State *game);
-
-//Gameboard handling functions
-void board_to_databoard(struct Game_State *game);
-void databoard_to_board(struct Game_State *game);
-
-void update_game_start(struct Game_State *game);
-void update_game_gameover(struct Game_State *game);
-void update_game_play(struct Game_State *game);
-double get_time_to_next_drop(int level);
-
-bool isRowComplete(struct Game_State *game, int rowIndex);
-bool check_and_clear_row(struct Game_State *game);
-void removeRow(struct Game_State *game, int rowIndex);
-void clearAllCompletedRows(struct Game_State *game);
-
-void render_menu_screens(struct Game_State *game, struct Menu_State *menu);
+/* Menu functions */
 void update_menu_screen(struct Menu_State *menu);
-
 void update_gameoption_screen(struct Game_State *game, struct Menu_State *menu);
+void update_leaderboard_screen(struct Menu_State *menu, struct Game_State *game);
+
+/* Menu handling functions */
 void handle_menu(struct Game_State *game, struct Menu_State *menu);
 void increaseLevel(struct Game_State *game);
 void gameoptions(struct Game_State *game, struct Menu_State *menu);
 void execute_option(struct Game_State *game, struct Menu_State *menu);
 
+
+/* Tetris score and levelboard related functions */
+void init_scoreboard(void);
+void init_levelboard(void);
+void update_score_text(int score);
+void update_level_text(int level);
+void update_score(struct Game_State *game, int LinesCleared);
+void update_level(struct Game_State *game);
+void insert_score(struct Game_State *game, struct PlayerScore playerScore);
+
+/* Move related functions */
+bool canMoveLeft(struct Game_State *game, struct Piece_State piece);
+void moveLeft(struct Game_State *game);
+
+bool canMoveRight(struct Game_State *game, struct Piece_State piece);
+void moveRight(struct Game_State *game);
+
+bool canMoveDown(struct Game_State *game, struct Piece_State piece);
+void moveDown(struct Game_State *game);
+void hardDrop(struct Game_State *game);
+bool valid_soft_drop(struct Game_State *game);
+
+int can_rotate(struct Game_State *game, struct Piece_State piece);
+void rotate_tetromino(struct Game_State *game);
+
+/* Tetromino handling functions */
+void spawn_tetromino(struct Game_State *game);
+void remove_tetromino(struct Game_State *game);
+void set_piece_data(struct Game_State *game, struct Tetromino *tetromino);
+void set_piece_tetromino(struct Game_State *game);
+void merge_tetromino(struct Game_State *game);
+void set_next_piece(struct Game_State *game, int index);
+
+/* Gameboard handling functions */
+void board_to_databoard(struct Game_State *game);
+void databoard_to_board(struct Game_State *game);
+
+/* Game phase handling functions */
+void update_game_start(struct Game_State *game);
+void update_game_gameover(struct Game_State *game);
+bool is_gameover(struct Game_State *game);
+void update_game_play(struct Game_State *game);
+void choose_initials(struct Game_State *game, int score);
+
+/* soft drop timer function */
+double get_time_to_next_drop(int level);
+
+/* Row completion functions */
+bool isRowComplete(struct Game_State *game, int rowIndex);
+bool check_and_clear_row(struct Game_State *game);
+void removeRow(struct Game_State *game, int rowIndex);
+void clearAllCompletedRows(struct Game_State *game);
+
+
+
 //random pcg generator
-void seed(struct pcg32_random_t* rng);
-void pcg32_srandom_r(struct pcg32_random_t* rng, uint64_t initstate, uint64_t initseq);
-uint32_t pcg32_random_r(struct pcg32_random_t* rng);
-uint32_t pcg32_boundedrand_r(struct pcg32_random_t* rng, uint32_t bound);
+void seed(struct Game_State *game);
+void pcg32_srandom_r(struct Game_State *game, uint64_t initstate, uint64_t initseq);
+uint32_t pcg32_random_r(struct Game_State *game);
+uint32_t pcg32_boundedrand_r(struct Game_State *game, uint32_t bound);
 
 uint8_t spi_send_recv(uint8_t data);
 
