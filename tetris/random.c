@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+/* PCG random number generator */
 uint32_t pcg32_random_r(struct Game_State *game) {
     uint64_t oldstate = game->rng.state;
     game->rng.state = oldstate * 6364136223846793005ULL + game->rng.increment;
@@ -15,6 +16,7 @@ uint32_t pcg32_random_r(struct Game_State *game) {
     return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
 }
 
+/* seeds the generator */
 void pcg32_srandom_r(struct Game_State *game, uint64_t initstate, uint64_t initseq) {
     game->rng.state = 0U;
     game->rng.increment = (initseq << 1u) | 1u;
@@ -23,6 +25,7 @@ void pcg32_srandom_r(struct Game_State *game, uint64_t initstate, uint64_t inits
     pcg32_random_r(game);
 }
 
+/* PCG random number generator with a bound */
 uint32_t pcg32_boundedrand_r(struct Game_State *game, uint32_t bound) {
     uint32_t threshold = -bound % bound;
     for (;;) {
@@ -36,6 +39,7 @@ uint32_t pcg32_boundedrand_r(struct Game_State *game, uint32_t bound) {
 int volatile state = 0;
 int volatile seq = 0;
 
+/* Sets the seed first time a button is pressed */
 void seed(struct Game_State *game) {
     int btns = getbtns();
 

@@ -40,6 +40,7 @@ struct Piece_State
     int side;
     int pos_x;
     int pos_y;
+    int rotation; // 0, 90, 180, 270
 };
 
 enum Screens
@@ -70,8 +71,9 @@ struct PlayerScore {
 
 // Leaderboard to hold all PlayerScores
 struct Leaderboard {
-  int currentHighscore;
-  struct PlayerScore leaderboard[100];
+    int currentHighscore;
+    struct PlayerScore leaderboard[100]; // Pointer to PlayerScore elements
+    int size; // Current size of the leaderboard
 };
 
 //Struct to hold the entire Game State

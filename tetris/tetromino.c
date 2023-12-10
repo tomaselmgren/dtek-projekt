@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdbool.h>
 
+/* Struct containing the data for each kind of tetromino and how big its sides are */
 struct Tetromino TETROMINOS[] = {
     { .data = { {0, 0, 0, 0},
                 {1, 1, 1, 1},
@@ -35,8 +36,10 @@ struct Tetromino TETROMINOS[] = {
                 {0, 0, 0} }, .side = 3 }
 };
 
+/* Array containg a tetrominos different spawn points */
 int SPAWN_POSITIONS[] = {9,12,15};
 
+/* Sets the tetromino data to the game state */
 void set_piece_data(struct Game_State *game, struct Tetromino *tetromino)
 {
     for (int row = 0; row < tetromino->side; row++) {
@@ -49,6 +52,7 @@ void set_piece_data(struct Game_State *game, struct Tetromino *tetromino)
     set_piece_tetromino(game);
 }
 
+/* creates a large tetromino array where each block is 3x3 pixels */
 void set_piece_tetromino(struct Game_State *game) {
     for (int i = 0; i < game->piece.side; i++) {
       for (int j = 0; j < game->piece.side; j++) {
@@ -65,6 +69,7 @@ void set_piece_tetromino(struct Game_State *game) {
     }
 }
 
+/* Spawns new tetromino to the game state */
 void spawn_tetromino(struct Game_State *game) {
 
     set_piece_data(game, &TETROMINOS[game->nextPieceIndex]);
@@ -72,12 +77,14 @@ void spawn_tetromino(struct Game_State *game) {
 
     game->piece.pos_x = SPAWN_POSITIONS[pcg32_boundedrand_r(game, 3)];
     game->piece.pos_y = 71;
+    game->piece.rotation = 0;
     game->tick = 0;
     game->time = 0;
 
     merge_tetromino(game);
 }
 
+/* Sets the next tetromino to spawn */
 void set_next_piece(struct Game_State *game, int index) {
     game->nextPieceIndex = index;
     struct Tetromino tetromino = TETROMINOS[game->nextPieceIndex];
@@ -103,6 +110,7 @@ void set_next_piece(struct Game_State *game, int index) {
     }
 }
 
+/* Inserts the current tetromino to the display board */
 void merge_tetromino(struct Game_State *game) {
     for (int i = 0; i < game->piece.side * 3; i++) {
       for (int j = 0; j < game->piece.side * 3; j++) {
@@ -113,6 +121,7 @@ void merge_tetromino(struct Game_State *game) {
     }
 }
 
+/* Removes current tetromino from display board */
 void remove_tetromino(struct Game_State *game) {
     for (int i = 0; i < game->piece.side * 3; i++) {
       for (int j = 0; j < game->piece.side * 3; j++) {
@@ -123,35 +132,29 @@ void remove_tetromino(struct Game_State *game) {
     }
 }
 
+/* Check if tetromino can rotate function */
 int can_rotate(struct Game_State *game, struct Piece_State piece) {
     for (int row = (piece.side * 3 - 1); row >= 0; row--) {
         for (int col = 0; col < piece.side * 3; col++) {
 
-            //check if a piece already in the new rotated location
+            // Move Left Check
             if (piece.tetromino[row][col] == 1) {
-                if (game->data_board[piece.pos_y - row][piece.pos_x + col] == 1) {
+                if ((piece.pos_x + col < 0) || (game->data_board[piece.pos_y - row][piece.pos_x + col] == 1)) {
                     return 1;
-                }
-            }
-
-            //Move Left Check
-            if (piece.tetromino[row][col] == 1) {
-                if (piece.pos_x + col < 0) {
-                    return 2;
                 }
             }
 
             //Move Right Check
             if (piece.tetromino[row][(piece.side - 1) - col] == 1) {
-                if (piece.pos_x + col > 29) {
-                    return 3;
+                if ((piece.pos_x + col > 29) || (game->data_board[piece.pos_y - row][piece.pos_x + col] == 1)) {
+                    return 2;
                 }
             }
 
             //Move Down Check
             if (piece.tetromino[row][col] == 1) {
-                if (piece.pos_y - row < 0) {
-                    return 4;
+                if (( piece.pos_y - row < 0) || (game->data_board[piece.pos_y - row][piece.pos_x + col] == 1)) {
+                    return 3;
                 }
             }
         }
@@ -159,6 +162,7 @@ int can_rotate(struct Game_State *game, struct Piece_State piece) {
     return 0;
 }
 
+/* Rotates current tetromino */
 void rotate_tetromino(struct Game_State *game)
 {
     remove_tetromino(game);
@@ -180,6 +184,7 @@ void rotate_tetromino(struct Game_State *game)
         }
     }
 
+    // Sets the 12x12 tetromino array to the new data after rotation
     for (int i = 0; i < piece.side; i++) {
       for (int j = 0; j < piece.side; j++) {
 
@@ -194,35 +199,40 @@ void rotate_tetromino(struct Game_State *game)
       }
     }
 
+    piece.rotation = (piece.rotation + 90) % 360;
+
+    // Check if piece needs to be moved to be able to rotate
     switch (can_rotate(game, piece)) {
         case 0:
             game->piece = piece;
             break;
         case 1:
-            break; 
+            if (piece.side == 4 && piece.rotation == 180) { piece.pos_x += 3 * 2; } else { piece.pos_x += 3; }
+            // Check if tetrominos can rotate in its new position
+            if (can_rotate(game, piece) == 0) {
+                game->piece = piece;
+            }
+            break;
         case 2:
-            if (piece.side == 4) { piece.pos_x += 3 * 3; } else { piece.pos_x += 3; }
+            if (piece.side == 4 && piece.rotation == 0) { piece.pos_x -= 3 * 2; } else { piece.pos_x -= 3; }
             if (can_rotate(game, piece) == 0) {
                 game->piece = piece;
             }
             break;
         case 3:
-            if (piece.side == 4) { piece.pos_x -= 3 * 3; } else { piece.pos_x -= 3; }
-            if (can_rotate(game, piece) == 0) {
-                game->piece = piece;
-            }
-            break;
-        case 4:
-            if (piece.side == 4) { piece.pos_y += 3 * 3; } else { piece.pos_y += 3; }
+            if (piece.side == 4 && piece.rotation == 90) { piece.pos_y += 3 * 2; } else { piece.pos_y += 3; }
             if (can_rotate(game, piece) == 0) {
                 game->piece = piece;
             }
             break;
     }
-
     merge_tetromino(game);
 }
 
+/* 
+Moves tetromino to the left by a specified amount of pixels
+OBS: To not break the game it its set to move a 3 pixels to not cause any gaps that cant be filled with a block
+*/
 void moveLeft(struct Game_State *game)
 {
     remove_tetromino(game);
@@ -235,6 +245,10 @@ void moveLeft(struct Game_State *game)
     merge_tetromino(game);
 }
 
+/* 
+Moves tetromino to the right by a specified amount of pixels
+OBS: To not break the game it its set to move a 3 pixels to not cause any gaps that cant be filled with a block
+*/
 void moveRight(struct Game_State *game)
 {
     remove_tetromino(game);
@@ -247,6 +261,7 @@ void moveRight(struct Game_State *game)
     merge_tetromino(game);
 }
 
+/* Move check function to see if current tetromino can move left or is it going to hit the board wall or an another tetromino */
 bool canMoveLeft(struct Game_State *game, struct Piece_State piece)
 {
     for (int row = (piece.side * 3 - 1); row >= 0; --row) {
@@ -261,6 +276,7 @@ bool canMoveLeft(struct Game_State *game, struct Piece_State piece)
     return true;
 }
 
+/* Move check function to see if current tetromino can move right or is it going to hit the board wall or an another tetromino */
 bool canMoveRight(struct Game_State *game, struct Piece_State piece)
 {
 
@@ -276,7 +292,7 @@ bool canMoveRight(struct Game_State *game, struct Piece_State piece)
     return true;
 }
 
-
+/* Move check function to see if current tetromino can move down or is it going to hit the board floor or an another tetromino */
 bool canMoveDown(struct Game_State *game, struct Piece_State piece)
 {
     for (int row = (piece.side * 3 - 1); row >= 0; row--) {
@@ -291,6 +307,7 @@ bool canMoveDown(struct Game_State *game, struct Piece_State piece)
     return true;
 }
 
+/* Moves the tetromino one pixel downwards if it can move */
 void moveDown(struct Game_State *game)
 {
     struct Piece_State piece = game->piece;
@@ -305,6 +322,7 @@ void moveDown(struct Game_State *game)
 
 }
 
+/* Hard drops the current tetromino */
 void hardDrop(struct Game_State *game)
 {
     remove_tetromino(game);
@@ -317,6 +335,7 @@ void hardDrop(struct Game_State *game)
     merge_tetromino(game);
 }
 
+/* Check to see if the current tetromino should drop down by one each time the timer has ticked a specified amount of time */
 bool valid_soft_drop(struct Game_State *game) {
     if (game->tick >= get_time_to_next_drop(game->level)) {
         game->tick = 0;

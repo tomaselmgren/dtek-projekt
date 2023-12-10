@@ -19,9 +19,9 @@ int getbtns(void) {
 
 
 
-// ///HANDLE MENU OPTIONS
+/* HANDLE MENU OPTIONS */
 
-// Implement this function to get the user's input and update the currentOption accordingly
+/* Function to get the user's input and update the currentOption accordingly */
 void handle_menu(struct Game_State *game, struct Menu_State *menu) {
   int btn = getbtns();
   if (btn == 4) { // Up
@@ -41,9 +41,11 @@ void handle_menu(struct Game_State *game, struct Menu_State *menu) {
   }
 }
 
-// ///HANDLE MENU EXECUTIONS
+/* HANDLE MENU EXECUTIONS */
+
 volatile int currentLevelIndex = 0;
 
+/* Function to increase the start level for each game */
 void increaseLevel(struct Game_State *game) {
     int levels[5] = {1, 5, 10, 20, 25};
     currentLevelIndex = (currentLevelIndex + 1) % 5;
@@ -51,7 +53,7 @@ void increaseLevel(struct Game_State *game) {
     game->level = levels[currentLevelIndex];
 }
 
-// Implement this function to execute the selected menu option
+/* handling function to execute the selected gameoptions */
 void gameoptions(struct Game_State *game, struct Menu_State *menu) {
     switch (menu->currentOption) {
         case 0:
@@ -66,7 +68,7 @@ void gameoptions(struct Game_State *game, struct Menu_State *menu) {
     }
 }
 
-// Implement this function to execute the selected menu option
+/* handling function to execute the selected menu options */
 void execute_option(struct Game_State *game, struct Menu_State *menu) {
     switch (menu->currentOption) {
         case 0:

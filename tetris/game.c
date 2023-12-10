@@ -34,6 +34,7 @@ int main(void) {
     return 0;
 }
 
+/* Array containing the amount of frames needed for each drop per level */
 static const uint8_t FRAMES_PER_DROP[] = {
     48,
     43,
@@ -67,6 +68,7 @@ static const uint8_t FRAMES_PER_DROP[] = {
     1
 };
 
+/* Array containing the amount of lines that needs to be cleared before you go up a level*/
 static const uint8_t LINES_PER_LEVEL[] = {
     20,
     30,
@@ -98,9 +100,10 @@ static const uint8_t LINES_PER_LEVEL[] = {
     200,
 };
 
+/* How many milliseconds per frame */
 static const int TARGET_SECONDS_PER_FRAME = 10;
 
-//returns the next drop time
+/* Returns the next drop time */
 double get_time_to_next_drop(int level)
 {
     if (level > 29)
@@ -110,8 +113,8 @@ double get_time_to_next_drop(int level)
     return (FRAMES_PER_DROP[level] / 3) * TARGET_SECONDS_PER_FRAME;
 }
 
+/* Creates a game state struct */
 struct Game_State create_game_struct() {
-
     struct Game_State game = {
         .board = {0},
         .data_board = {0},
@@ -123,11 +126,13 @@ struct Game_State create_game_struct() {
         .lines = 0,
         .time = 0,
         .tick = 0,
+        .leaderboard.currentHighscore = 0,
     };
 
     return game;
 }
 
+/* Updates the current game state struct to reset the game */
 void update_game_struct(struct Game_State *game) {
         for (int row = 0; row < 72; row++) {
             for (int col = 0; col < 30; col++) {
@@ -135,7 +140,6 @@ void update_game_struct(struct Game_State *game) {
                 game->data_board[row][col] = 0;
             }
         }
-
         game->nextPieceIndex = 0;
         game->start_level = 1;
         game->level = 1;
@@ -146,6 +150,7 @@ void update_game_struct(struct Game_State *game) {
         game->phase = GAME_PHASE_START;
 }
 
+/* Creates a menu struct */
 struct Menu_State create_menu_struct() {
     struct Menu_State menu = {
          .screen = MENU_SCREEN,
@@ -155,7 +160,9 @@ struct Menu_State create_menu_struct() {
     return menu;
 }
 
+/* Creates the entire game */
 void create_game(struct Game_State *game) {
+    game->phase = GAME_PHASE_START;
 
     while (game->phase != GAME_EXIT) {
         switch (game->phase) {
@@ -172,6 +179,7 @@ void create_game(struct Game_State *game) {
     }
 }
 
+/* Updates the start phase of the game where the menus are */
 void update_game_start(struct Game_State *game) {
     struct Menu_State menu = create_menu_struct();
 
@@ -181,7 +189,6 @@ void update_game_start(struct Game_State *game) {
         switch (menu.screen) {
             case MENU_SCREEN:
                 while (menu.screen == MENU_SCREEN && game->phase == GAME_PHASE_START) {
-                    seed(game);
                     handle_menu(game, &menu);
                     delay(100);
                     update_menu_screen(&menu);
@@ -206,16 +213,23 @@ void update_game_start(struct Game_State *game) {
     }
 }
 
+/* Updates the gameplay */
 void update_game_play(struct Game_State *game) {
+
+    // Setup the scoreboard and Levelboard
     init_scoreboard();
     init_levelboard();
     update_level(game);
 
+    //sets the nextPieceIndex to a random number between 0-6
     game->nextPieceIndex = pcg32_boundedrand_r(game, 7);
 
+    //Spawn the first tetromino
     spawn_tetromino(game);
 
     while (game->phase == GAME_PHASE_PLAY) {
+
+        //Each time the timer ticks it should update the frame
         if (IFS(0) & 0x100) {
             IFS(0) = 0;
 
@@ -224,6 +238,7 @@ void update_game_play(struct Game_State *game) {
 
             clearScreen();
 
+            // Button Handling
             int btns = getbtns();
             int sw = getsw();
 
@@ -254,11 +269,17 @@ void update_game_play(struct Game_State *game) {
                 
             }
 
-
+            // Soft drops the tetromino everytime the timer has ticked the specified amount
             if (valid_soft_drop(game)) {
                 moveDown(game);
             }
 
+            /* 
+            If current tetromino can't move downwards anymore place the piece where it is.
+            Updates the databoard and clears all completed lines the convert the databoard back into the display board to update it.
+            If a tetromino is found above the gameboard then it is gameover.
+            It isn't gameover spawn a new tetromino.
+            */
             if (!canMoveDown(game, game->piece) && game->time > 6) {
                 board_to_databoard(game);
                 clearAllCompletedRows(game);
@@ -273,6 +294,8 @@ void update_game_play(struct Game_State *game) {
 
 
             }
+
+            // Draw the new display board
             draw_screen(game);
         }
     }
@@ -284,21 +307,21 @@ void update_game_gameover(struct Game_State *game) {
         delay(1000);
         clear_string_display();
 
-        int btn = 0;
-        while (btn == 0) {
-            btn = getbtns();
-            render_highscore(game, game->score);
-        }
+        render_highscore(game, game->score);
 
         delay(1000);
         clear_string_display();
 
         choose_initials(game, game->score);
 
+        delay(1000);
+        clear_string_display();
+
         update_game_struct(game);
     }
 }
 
+/* Checks if a the first column above the gameboard contains a tetromino */
 bool is_gameover(struct Game_State *game) {
     for (int col = 0; col < 30; col++) {
         if (game->board[60][col] == 1) {
@@ -308,35 +331,47 @@ bool is_gameover(struct Game_State *game) {
     return false;
 }
 
-//If player has gotten a new highscore render it
+/* Render player score */
 void render_highscore(struct Game_State *game, int score) {
-  if (game->leaderboard.currentHighscore < score) {
-      display_string(0, "New Highscore:");
-      display_string(1, itoaconv(score));
-      display_update();
-      game->leaderboard.currentHighscore = score;
-  } else { 
-      display_string(0, "New Score:");
-      display_string(1, itoaconv(score));
-      display_update();
-  }
+    int btn = 0;
+         
+    if (score > game->leaderboard.currentHighscore) {
+        while (btn == 0) {
+            btn = getbtns();
+            display_string(0, "New Highscore:");
+            display_string(1, itoaconv(score));
+            display_update();
+            game->leaderboard.currentHighscore = score;
+        } 
+    } else {
+        while (btn == 0) {
+            btn = getbtns();
+            display_string(0, "New Score:");
+            display_string(1, itoaconv(score));
+            display_update();
+        }
+    }
 }
 
-//insert the score after a game
+/* insert the score after a game */
 void insert_score(struct Game_State *game, struct PlayerScore playerScore) {
+    
+    // Increment size of leaderboard by 1
+    game->leaderboard.size++;
+    
     int i;
 
     // Find the correct position to insert the new score
-    for (i = 0; i < 100; i++) {
-        if (playerScore.score > game->leaderboard.leaderboard[i].score || game->leaderboard.leaderboard[i].score == 0) {
+    for (i = 0; i < game->leaderboard.size; i++) {
+        if (playerScore.score > game->leaderboard.leaderboard[i].score) {
             break;
         }
     }
 
     // Shift elements to make space for the new score
-    for (int j = i; j < 100; j++) {
-        game->leaderboard.leaderboard[j + 1].score = game->leaderboard.leaderboard[j].score;
-        strcpy(game->leaderboard.leaderboard[j + 1].initials, game->leaderboard.leaderboard[j].initials);
+    for (int j = game->leaderboard.size - 1; j > i; j--) {
+        game->leaderboard.leaderboard[j].score = game->leaderboard.leaderboard[j - 1].score;
+        strcpy(game->leaderboard.leaderboard[j].initials, game->leaderboard.leaderboard[j - 1].initials);
     }
 
     // Insert the new score and initials
@@ -344,7 +379,7 @@ void insert_score(struct Game_State *game, struct PlayerScore playerScore) {
     strcpy(game->leaderboard.leaderboard[i].initials, playerScore.initials);
 }
 
-//Function to choose intials after game
+/* Function to choose intials after game */
 void choose_initials(struct Game_State *game, int score) {
     char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     int numChars = sizeof(characters) - 1; // -1 to exclude the null terminator
@@ -355,7 +390,7 @@ void choose_initials(struct Game_State *game, int score) {
 
     int btns = 0;
 
-    while (btns != 1) { // Don't know if this works, the idea is that the input loop is broken when button 4 is pressed. Could be swapped out to while switch is active.
+    while (btns != 1) {
 
         btns = getbtns();
         int sw = getsw();
@@ -412,8 +447,8 @@ void choose_initials(struct Game_State *game, int score) {
     insert_score(game, playerScore);
 }
 
-/// BOARD CONVERTER FUNCTIONW
 
+/* Set the databoard to the current gameboard */
 void board_to_databoard(struct Game_State *game) {
     for (int i = 0; i < 72; i++) {
         for (int j = 0; j < 30; j++) {
@@ -422,6 +457,7 @@ void board_to_databoard(struct Game_State *game) {
     }
 }
 
+/* Set the current databoard to the gameboard */
 void databoard_to_board(struct Game_State *game) {
     for (int i = 0; i < 72; i++) {
         for (int j = 0; j < 30; j++) {
@@ -433,6 +469,7 @@ void databoard_to_board(struct Game_State *game) {
 
 /// MENU RENDERING
 
+/* Updates the menu screen each frame update */
 void update_menu_screen(struct Menu_State *menu) {
     clearScreen();
 
@@ -452,6 +489,7 @@ void update_menu_screen(struct Menu_State *menu) {
     display_update();
 }
 
+/* Updates the gameoption screen each frame update */
 void update_gameoption_screen(struct Game_State *game, struct Menu_State *menu) {
     clearScreen();
 
@@ -473,6 +511,7 @@ void update_gameoption_screen(struct Game_State *game, struct Menu_State *menu) 
     display_update();
 }
 
+/* Updates the leaderboard each frame update */
 void update_leaderboard_screen(struct Menu_State *menu, struct Game_State *game) {
     
     clear_string_display();
@@ -482,7 +521,7 @@ void update_leaderboard_screen(struct Menu_State *menu, struct Game_State *game)
 
     // Find the index where leaderboard score becomes zero
     int maxIndex = 0;
-    while (maxIndex < sizeof(game->leaderboard.leaderboard) && game->leaderboard.leaderboard[maxIndex].score != 0) {
+    while (maxIndex < game->leaderboard.size) {
         maxIndex++;
     }
 
@@ -495,12 +534,6 @@ void update_leaderboard_screen(struct Menu_State *menu, struct Game_State *game)
                 menu->screen = MENU_SCREEN;
                 break;
             case 2:
-                currentIndex--;
-                if (currentIndex < 0) {
-                    currentIndex = 0; // Limit minimum index to 0
-                }
-                break;
-            case 4: 
                 currentIndex++;
                 if (currentIndex > maxIndex) {
                     currentIndex = maxIndex; // Limit maximum index
@@ -508,13 +541,21 @@ void update_leaderboard_screen(struct Menu_State *menu, struct Game_State *game)
                         currentIndex = 0; // Ensure not below 0
                     }
                 }
+                if (maxIndex < 3) {
+                    currentIndex = 0;
+                }
+                break;
+            case 4: 
+                currentIndex--;
+                if (currentIndex < 0) {
+                    currentIndex = 0; // Limit minimum index to 0
+                }
                 break;
         }
 
         delay(50);
-
         display_string(0, "Highscores");
-        for (int i = currentIndex; i < currentIndex + 3 && game->leaderboard.leaderboard[i].score != 0; i++ ) {
+        for (int i = currentIndex; i < currentIndex + 3 && i < maxIndex; i++ ) {
             char scores[20];
             strcpy(scores, game->leaderboard.leaderboard[i].initials);
             strcat(scores, " - ");
@@ -559,9 +600,7 @@ void removeRow(struct Game_State *game, int rowIndex)
         }
 }
 
-/**
- * Func that should be called in main game loop every collision.
- */
+/* Tries to find a completed row and removes it, returns true if it has removed and false if it hasn't */
 bool check_and_clear_row(struct Game_State *game)
 {
     for (int y = 0; y < 60; y++)
@@ -575,6 +614,10 @@ bool check_and_clear_row(struct Game_State *game)
     return false;
 }
 
+/**
+ * Func that should be called in main game loop every collision.
+ * Clears Rows until there are no more rows to clear.
+ */
 void clearAllCompletedRows(struct Game_State *game) {
     int linesCleared = 0;
     while (check_and_clear_row(game)) {
@@ -616,6 +659,7 @@ void update_score(struct Game_State *game, int linesCleared)
     update_score_text(game->score);
 }
 
+/* Increases the level of the current game */
 void update_level(struct Game_State *game)
 {
     if (game->lines >= LINES_PER_LEVEL[game->level-1]) {
